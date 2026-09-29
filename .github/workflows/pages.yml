@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -27,6 +27,8 @@ jobs:
         uses: actions/configure-pages@v5
       - name: Build freeCodeCamp curriculum data
         run: node scripts/build-fcc-curriculum.mjs
+      - name: Sync freeCodeCamp progress
+        run: node scripts/update-fcc-progress.mjs
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
         with:
