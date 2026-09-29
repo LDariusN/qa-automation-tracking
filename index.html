@@ -36,11 +36,64 @@ const FCC_V5_SYNC='qaRoadmapFCCSyncV5',FCC_V5_CURRICULUM='qaRoadmapFCCCurriculum
 const fccV5=JSON.parse(localStorage.getItem(FCC_V5_SYNC)||'null')||{username:'',auto:true,lastSync:null,lastError:null,completedIds:[]};
 let fccCurriculumV5=JSON.parse(localStorage.getItem(FCC_V5_CURRICULUM)||'null')||null;
 const FCC_V5_GRAPHQL='https://curriculum-db.freecodecamp.org/graphql';
-const FCC_V5_QUERY='query { superblock(dashedName: "javascript-v9") { chapters { dashedName modules { dashedName moduleType blockObjects { name dashedName blockLabel challengeOrder { id title } } } } } }';
+const FCC_V5_QUERY='query { modules(superblockDashedName: "javascript-v9", chapterDashedName: "javascript") { dashedName moduleType blockObjects { name dashedName blockLabel challengeOrder { id title } } } }';
 function saveFCCV5(){localStorage.setItem(FCC_V5_SYNC,JSON.stringify(fccV5))}
 function getFCCUserV5(d,u){const x=d?.entities?.user;if(x&&typeof x==='object'){const k=Object.keys(x).find(k=>k.toLowerCase()===u.toLowerCase())||Object.keys(x)[0];if(k)return x[k]}return d?.user||null}
-async function fetchFCCUserV5(u){const target='https://api.freecodecamp.org/users/get-public-profile?username='+encodeURIComponent(u.trim()),attempts=['https://proxy.cors.dev/'+target,'https://api.allorigins.win/raw?url='+encodeURIComponent(target),target],errors=[];for(const url of attempts){try{const r=await fetch(url,{cache:'no-store',redirect:'follow'});if(!r.ok){errors.push('HTTP '+r.status);continue}const d=JSON.parse(await r.text()),x=getFCCUserV5(d,u);if(x)return x}catch(e){errors.push(String(e?.message||e))}}throw new Error(errors.join(' | '))}
-async function fetchFCCCurriculumV5(){const r=await fetch(FCC_V5_GRAPHQL+'?query='+encodeURIComponent(FCC_V5_QUERY),{cache:'no-store',headers:{Accept:'application/json'}});if(!r.ok)throw new Error('Curriculum API HTTP '+r.status);const d=await r.json();if(d.errors?.length)throw new Error(d.errors[0].message||'Curriculum API error');const sb=d?.data?.superblock;if(!sb?.chapters)throw new Error('JavaScript v9 curriculum was not returned');const seen=new Set(),modules=[],lessons=[];for(const ch of sb.chapters){if(ch.dashedName!=='javascript')continue;for(const m of ch.modules||[]){if(m.moduleType==='exam'||m.moduleType==='review')continue;const ml=[];for(const b of m.blockObjects||[])for(const c of b.challengeOrder||[]){if(seen.has(c.id))continue;seen.add(c.id);ml.push({id:c.id,title:c.title,block:b.dashedName,kind:b.blockLabel||'lesson',module:m.dashedName})}if(ml.length){modules.push({name:m.dashedName,lessons:ml});lessons.push(...ml)}}}return{modules,lessons,total:lessons.length}}
+async function fetchFCCUserV5(u){
+  const target='https://api.freecodecamp.org/users/get-public-profile?username='+encodeURIComponent(u.trim());
+  const attempts=[
+    'https://corsproxy.io/?url='+encodeURIComponent(target),
+    'https://api.allorigins.win/raw?url='+encodeURIComponent(target),
+    target
+  ];
+  const errors=[];
+  for(const url of attempts){
+    try{
+      const r=await fetch(url,{cache:'no-store',redirect:'follow',headers:{Accept:'application/json'}});
+      if(!r.ok){errors.push('HTTP '+r.status);continue}
+      const raw=await r.text();
+      const d=JSON.parse(raw);
+      const x=getFCCUserV5(d,u);
+      if(x)return x;
+      errors.push('profile data not found');
+    }catch(e){errors.push(String(e?.message||e))}
+  }
+  throw new Error('FCC profile: '+errors.join(' | '));
+}
+async function fetchFCCCurriculumV5(){
+  const body=JSON.stringify({query:FCC_V5_QUERY});
+  const attempts=[
+    {label:'FCC curriculum proxy',url:'https://corsproxy.io/?url='+encodeURIComponent(FCC_V5_GRAPHQL)},
+    {label:'FCC curriculum direct',url:FCC_V5_GRAPHQL}
+  ];
+  const errors=[];
+  for(const a of attempts){
+    try{
+      const r=await fetch(a.url,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json',Accept:'application/json'},body});
+      if(!r.ok){errors.push(a.label+': HTTP '+r.status);continue}
+      const d=await r.json();
+      if(d.errors?.length){errors.push(a.label+': '+(d.errors[0].message||'GraphQL error'));continue}
+      const list=d?.data?.modules;
+      if(!Array.isArray(list))throw new Error('No modules returned');
+      const seen=new Set(),modules=[],lessons=[];
+      for(const m of list){
+        if(m.moduleType==='exam')continue;
+        const ml=[];
+        for(const b of (m.blockObjects||[])){
+          for(const c of (b.challengeOrder||[])){
+            if(seen.has(c.id))continue;
+            seen.add(c.id);
+            ml.push({id:c.id,title:c.title,block:b.dashedName,kind:b.blockLabel||'lesson',module:m.dashedName});
+          }
+        }
+        if(ml.length){modules.push({name:m.dashedName,lessons:ml});lessons.push(...ml)}
+      }
+      if(!lessons.length)throw new Error('JavaScript v9 returned no challenges');
+      return {modules,lessons,total:lessons.length,fetchedAt:new Date().toISOString()};
+    }catch(e){errors.push(a.label+': '+String(e?.message||e))}
+  }
+  throw new Error('FCC curriculum: '+errors.join(' | '));
+}
 function fccSlugV5(x){return x.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/['’]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')}
 function fccUrlV5(l){return'https://www.freecodecamp.org/learn/javascript-v9/'+l.block+'/'+fccSlugV5(l.title)}
 function setFCCStatusV5(m,t=''){const e=document.getElementById('fccStatus');if(e){e.className='fcc-status'+(t?' '+t:'');e.textContent=m}}
