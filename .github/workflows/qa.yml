@@ -1,0 +1,32 @@
+name: Roadmap QA
+
+on:
+  push:
+    branches: [main, v2-motivation-system]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  browser-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build FCC curriculum
+        run: node scripts/build-fcc-curriculum.mjs
+      - name: Sync FCC progress
+        run: node scripts/update-fcc-progress.mjs
+      - name: Start local web server
+        run: python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/qa-http.log 2>&1 &
+      - name: Chromium smoke test
+        run: |
+          chromium --headless --no-sandbox --disable-gpu --dump-dom http://127.0.0.1:4173/tests/qa-smoke.html > /tmp/qa-dom.html
+          grep -q "QA_PASS" /tmp/qa-dom.html
+          cat /tmp/qa-dom.html
