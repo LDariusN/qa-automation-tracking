@@ -42,21 +42,26 @@ async function fetchFCCUser(u){
   const q=encodeURIComponent(u.trim());
   const target='https://www.freecodecamp.org/api/users/get-public-profile?username='+q;
   const attempts=[
-    {url:'https://api.allorigins.win/raw?url='+encodeURIComponent(target),mode:'raw'},
-    {url:target,mode:'json'}
+    {label:'CORS relay',url:'https://proxy.cors.dev/'+target},
+    {label:'AllOrigins relay',url:'https://api.allorigins.win/raw?url='+encodeURIComponent(target)},
+    {label:'Direct',url:target}
   ];
-  let lastError=null;
+  const errors=[];
   for(const a of attempts){
     try{
-      const r=await fetch(a.url,{cache:'no-store'});
-      if(!r.ok){lastError=new Error('HTTP '+r.status);continue;}
-      const d=a.mode==='raw'?JSON.parse(await r.text()):await r.json();
+      const r=await fetch(a.url,{cache:'no-store',redirect:'follow'});
+      if(!r.ok){errors.push(a.label+': HTTP '+r.status);continue}
+      const text=await r.text();
+      let d;
+      try{d=JSON.parse(text)}catch{errors.push(a.label+': response was not valid JSON');continue}
       const x=getFCCUser(d,u);
       if(x)return x;
-      lastError=new Error('Profile response did not contain user data');
-    }catch(x){lastError=x}
+      errors.push(a.label+': profile data not found');
+    }catch(x){
+      errors.push(a.label+': '+String(x?.message||x));
+    }
   }
-  throw lastError||new Error('Unable to reach freeCodeCamp');
+  throw new Error(errors.join(' | '));
 }
 function milestoneComplete(k,set){const t=fccTargets[k];if(!t)return false;if(!t.ids.every(x=>set.has(x)))return false;return true}
 function setFCCStatus(m,t=''){const e=document.getElementById('fccStatus');e.className='fcc-status'+(t?' '+t:'');e.textContent=m}
