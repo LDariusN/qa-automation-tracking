@@ -23,6 +23,15 @@
   need('FCC progress nonzero',(d.getElementById('fccProgressPct')?.textContent||'')!=='0%');
   need('today mission populated',(d.getElementById('missionTitle')?.textContent||'').length>0&&d.getElementById('missionTitle').textContent!=='Loading your next mission…');
   need('XP visible',/XP/.test(d.getElementById('motXp')?.textContent||''));
+  const xpBefore=Number((d.getElementById('motXp')?.textContent||'0').match(/\d+/)?.[0]||0);
+  d.getElementById('missionStartBtn')?.click();
+  await wait(150);
+  const xpAfter=Number((d.getElementById('motXp')?.textContent||'0').match(/\d+/)?.[0]||0);
+  need('start session awards XP',xpAfter>=xpBefore+15);
+  need('streak increments',(d.getElementById('motStreak')?.textContent||'0')==='1');
+  const manual=d.querySelector('input[data-roadmap-unit]');
+  if(manual){manual.click();await wait(50);need('manual progress persists',JSON.parse(w.localStorage.getItem('qaPhaseUnitsV1')||'{}')[manual.dataset.phaseUnit]===true);}
+  else fail.push('no manual roadmap unit found');
   need('career progress',d.querySelectorAll('.career-phase').length===14);
   const sync= w.syncFCC;
   need('sync function exposed',typeof sync==='function');
