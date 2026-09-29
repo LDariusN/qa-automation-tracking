@@ -40,10 +40,10 @@ function saveFCC(){localStorage.setItem(FCC_SYNC_KEY,JSON.stringify(fccSync))}
 function getFCCUser(d,u){const x=d?.entities?.user;if(x&&typeof x==='object'){const k=Object.keys(x).find(k=>k.toLowerCase()===u.toLowerCase())||Object.keys(x)[0];if(k)return x[k]}return d?.user||null}
 async function fetchFCCUser(u){
   const q=encodeURIComponent(u.trim());
-  const target='https://www.freecodecamp.org/api/users/get-public-profile?username='+q;
+  const target='https://api.freecodecamp.org/users/get-public-profile?username='+q;
   const attempts=[
-    {label:'CORS relay',url:'https://proxy.cors.dev/'+target},
-    {label:'AllOrigins relay',url:'https://api.allorigins.win/raw?url='+encodeURIComponent(target)},
+    {label:'cors.dev',url:'https://proxy.cors.dev/'+target},
+    {label:'AllOrigins',url:'https://api.allorigins.win/raw?url='+encodeURIComponent(target)},
     {label:'Direct',url:target}
   ];
   const errors=[];
@@ -57,9 +57,7 @@ async function fetchFCCUser(u){
       const x=getFCCUser(d,u);
       if(x)return x;
       errors.push(a.label+': profile data not found');
-    }catch(x){
-      errors.push(a.label+': '+String(x?.message||x));
-    }
+    }catch(x){errors.push(a.label+': '+String(x?.message||x))}
   }
   throw new Error(errors.join(' | '));
 }
