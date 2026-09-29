@@ -40,26 +40,41 @@ const FCC_V5_GRAPHQL='https://curriculum-db.freecodecamp.org/graphql';
 const FCC_V5_QUERY='query { modules(superblockDashedName: "javascript-v9", chapterDashedName: "javascript") { dashedName moduleType blockObjects { name dashedName blockLabel challengeOrder { id title } } } }';
 function saveFCCV5(){qaStorage.setItem(FCC_V5_SYNC,JSON.stringify(fccV5))}
 function getFCCUserV5(d,u){const x=d?.entities?.user;if(x&&typeof x==='object'){const k=Object.keys(x).find(k=>k.toLowerCase()===u.toLowerCase())||Object.keys(x)[0];if(k)return x[k]}return d?.user||null}
-async function fetchFCCUserV5(u){
-  const target='https://api.freecodecamp.org/users/get-public-profile?username='+encodeURIComponent(u.trim());
-  const attempts=[
+async function fetchFCCUserV5(rawUsername){
+  const u=String(rawUsername||'').trim().replace(/^@+/,'');
+  if(!u)throw new Error('FCC username is empty');
+  const target='https://api.freecodecamp.org/users/get-public-profile?username='+encodeURIComponent(u);
+  const urls=[
     'https://corsproxy.io/?url='+encodeURIComponent(target),
     'https://api.allorigins.win/raw?url='+encodeURIComponent(target),
     target
   ];
+  const timeout=7000;
   const errors=[];
-  for(const url of attempts){
+  const tryOne=async url=>{
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),timeout);
     try{
-      const r=await fetch(url,{cache:'no-store',redirect:'follow',headers:{Accept:'application/json'}});
-      if(!r.ok){errors.push('HTTP '+r.status);continue}
-      const raw=await r.text();
-      const d=JSON.parse(raw);
+      const r=await fetch(url,{cache:'no-store',redirect:'follow',headers:{Accept:'application/json'},signal:controller.signal});
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      const d=JSON.parse(await r.text());
       const x=getFCCUserV5(d,u);
-      if(x)return x;
-      errors.push('profile data not found');
-    }catch(e){errors.push(String(e?.message||e))}
+      if(!x)throw new Error('profile data not found');
+      return x;
+    }finally{
+      clearTimeout(timer);
+    }
+  };
+  const attempts=urls.map((url,i)=>tryOne(url).catch(e=>{
+    const reason=e?.name==='AbortError'?'timeout':String(e?.message||e);
+    errors[i]=reason;
+    throw e;
+  }));
+  try{
+    return await Promise.any(attempts);
+  }catch{
+    throw new Error('FCC profile sync failed: '+urls.map((_,i)=>errors[i]||'failed').join(' | '));
   }
-  throw new Error('FCC profile: '+errors.join(' | '));
 }
 async function fetchFCCCurriculumV5(){const r=await fetch('./fcc-javascript-v9.json?cache='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error('Local FCC curriculum HTTP '+r.status);const data=await r.json();if(!Array.isArray(data.lessons)||!data.lessons.length)throw new Error('Local FCC curriculum data is empty');return data}
 async function loadStaticFCCCurriculumV5(){if(fccCurriculumV5?.lessons?.length){updateFCCPanelV5();return}try{fccCurriculumV5=await fetchFCCCurriculumV5();qaStorage.setItem(FCC_V5_CURRICULUM,JSON.stringify(fccCurriculumV5));updateFCCPanelV5()}catch(e){setFCCStatusV5('FCC curriculum could not be loaded: '+String(e?.message||e),'error')}}
