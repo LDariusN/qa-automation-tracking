@@ -1,0 +1,37 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>QA smoke test</title>
+<iframe id="appFrame" src="./index.html?qa-smoke=1" style="width:1px;height:1px;border:0"></iframe>
+<script>
+(async()=>{
+  const fail=[];
+  const frame=document.getElementById('appFrame');
+  await new Promise((resolve,reject)=>{
+    frame.onload=resolve;
+    frame.onerror=()=>reject(new Error('index.html failed to load'));
+    setTimeout(()=>reject(new Error('index.html load timeout')),10000);
+  });
+  const w=frame.contentWindow,d=frame.contentDocument;
+  const wait=ms=>new Promise(r=>setTimeout(r,ms));
+  await wait(2500);
+  const need=(name,ok)=>{if(!ok)fail.push(name)};
+  need('motivation panel',!!d.getElementById('motivationPanel'));
+  need('14 phase trackers',d.querySelectorAll('.phase-tracker').length===14);
+  need('fcc dashboard',!!d.querySelector('.fcc-v5-dashboard'));
+  need('1341 FCC lessons',d.querySelectorAll('.fcc-v5-lesson').length===1341);
+  need('207 completed FCC tasks',(d.getElementById('fccCompletedCount')?.textContent||'')==='207');
+  need('FCC progress nonzero',(d.getElementById('fccProgressPct')?.textContent||'')!=='0%');
+  need('today mission populated',(d.getElementById('missionTitle')?.textContent||'').length>0&&d.getElementById('missionTitle').textContent!=='Loading your next mission…');
+  need('XP visible',/XP/.test(d.getElementById('motXp')?.textContent||''));
+  need('career progress',d.querySelectorAll('.career-phase').length===14);
+  const sync= w.syncFCC;
+  need('sync function exposed',typeof sync==='function');
+  if(typeof sync==='function'){
+    await sync();
+    await wait(500);
+    need('sync success message',/^Synced successfully/.test(d.getElementById('fccStatus')?.textContent||''));
+    need('sync count remains 207',(d.getElementById('fccCompletedCount')?.textContent||'')==='207');
+  }
+  document.body.textContent=fail.length?'QA_FAIL\n'+fail.join('\n'):'QA_PASS\n14 phases\n1341 FCC lessons\n207 synced completions\nMotivation dashboard OK\nSync button OK';
+})();
+</script>
