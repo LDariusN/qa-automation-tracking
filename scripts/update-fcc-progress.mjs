@@ -19,6 +19,7 @@ const key=users&&Object.keys(users).find(k=>k.toLowerCase()===username.toLowerCa
 if(!key)throw new Error('freeCodeCamp user not found: '+username);
 
 const user=users[key];
+if(user?.profileUI?.showTimeLine===false)throw new Error('freeCodeCamp public timeline is hidden');
 const ids=Array.isArray(user.completedChallenges)
   ? user.completedChallenges.map(x=>x?.id).filter(Boolean)
   : [];
