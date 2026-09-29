@@ -38,7 +38,26 @@ const fccWorkshopIds=['641d9a19bff38d34d5a5edb8','641da3c6b6fbd742bff6ee40','641
 const fccTargets={js1:{ids:['672d26385dbe73203c4dac81','672d496eca926b5df8176a67','672d497cb1a1675e47bf7ea1','672d499596218e9d3e672c','6723be264695fb7e619fe1fa']},js2:{ids:['66edc47c11492ac5cf258ad9']},js3:{ids:['66edcccbba6dacdb65a59067']},js4:{ids:['66edcd0ecb4b25dc64a34804']},js5:{ids:['66edcc779993c0da6906dbb9']},js6:{ids:['6723ca166fe90eb0a3146848','66edcd875b0d91de1fbbb492']},js7:{ids:['66edd10913f078e7669eca81']},js8:{ids:['66edd630f7666cfa54b404d0']},js9:{ids:['6732b788046862264eeb1c39','6732b79c6aa77826855a3f11']}};
 function saveFCC(){localStorage.setItem(FCC_SYNC_KEY,JSON.stringify(fccSync))}
 function getFCCUser(d,u){const x=d?.entities?.user;if(x&&typeof x==='object'){const k=Object.keys(x).find(k=>k.toLowerCase()===u.toLowerCase())||Object.keys(x)[0];if(k)return x[k]}return d?.user||null}
-async function fetchFCCUser(u){const q=encodeURIComponent(u.trim());let e;for(const base of ['https://api.freecodecamp.org/api/users/get-public-profile?username=','https://www.freecodecamp.org/api/users/get-public-profile?username=']){try{const r=await fetch(base+q,{cache:'no-store'});if(!r.ok){e=new Error('HTTP '+r.status);continue}const d=await r.json(),x=getFCCUser(d,u);if(x)return x;e=new Error('Profile response did not contain user data')}catch(x){e=x}}throw e||new Error('Unable to reach freeCodeCamp')}
+async function fetchFCCUser(u){
+  const q=encodeURIComponent(u.trim());
+  const target='https://www.freecodecamp.org/api/users/get-public-profile?username='+q;
+  const attempts=[
+    {url:'https://api.allorigins.win/raw?url='+encodeURIComponent(target),mode:'raw'},
+    {url:target,mode:'json'}
+  ];
+  let lastError=null;
+  for(const a of attempts){
+    try{
+      const r=await fetch(a.url,{cache:'no-store'});
+      if(!r.ok){lastError=new Error('HTTP '+r.status);continue;}
+      const d=a.mode==='raw'?JSON.parse(await r.text()):await r.json();
+      const x=getFCCUser(d,u);
+      if(x)return x;
+      lastError=new Error('Profile response did not contain user data');
+    }catch(x){lastError=x}
+  }
+  throw lastError||new Error('Unable to reach freeCodeCamp');
+}
 function milestoneComplete(k,set){const t=fccTargets[k];if(!t)return false;if(!t.ids.every(x=>set.has(x)))return false;return true}
 function setFCCStatus(m,t=''){const e=document.getElementById('fccStatus');e.className='fcc-status'+(t?' '+t:'');e.textContent=m}
 function updateFCCPanel(c,m){document.getElementById('fccCompletedCount').textContent=String(c);document.getElementById('fccMilestones').textContent=m+'/9';document.getElementById('fccLastSync').textContent=fccSync.lastSync?new Date(fccSync.lastSync).toLocaleString():'Never';document.getElementById('fccUsername').value=fccSync.username||'';document.getElementById('fccProfileLink').href=fccSync.username?'https://www.freecodecamp.org/'+encodeURIComponent(fccSync.username):'https://www.freecodecamp.org/';document.getElementById('fccAutoBtn').textContent='Auto-sync: '+(fccSync.auto?'ON':'OFF')}
