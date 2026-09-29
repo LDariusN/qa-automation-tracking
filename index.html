@@ -133,22 +133,33 @@ function updateFCCPanel(){
 async function syncFCC(){
   const u=document.getElementById('fccUsername').value.trim();
   if(!u){setFCCStatus('Enter your freeCodeCamp username first.','warn');return}
-  const b=document.getElementById('fccSyncBtn');b.disabled=true;b.textContent='Syncing…';setFCCStatus('Reading your freeCodeCamp profile and JavaScript v9 curriculum…');
+  const b=document.getElementById('fccSyncBtn');
+  b.disabled=true;b.textContent='Syncing…';
+  setFCCStatus('Reading your freeCodeCamp profile and JavaScript v9 curriculum…');
   try{
     const [user,curriculum]=await Promise.all([fetchFCCUser(u),fetchFCCCurriculum()]);
     if(user.profileUI&&user.profileUI.showTimeLine===false)throw new Error('Your public freeCodeCamp timeline is hidden. Enable the public timeline in freeCodeCamp profile settings and sync again.');
     const completed=Array.isArray(user.completedChallenges)?user.completedChallenges.map(x=>x?.id).filter(Boolean):[];
-    const completedSet=new Set(completed);
     fccCurriculum=curriculum;
     localStorage.setItem(FCC_CURRICULUM_KEY,JSON.stringify(fccCurriculum));
-    fccSync.username=u;fccSync.completedIds=completed;fccSync.lastSync=new Date().toISOString();fccSync.lastError=null;saveFCC();
+    fccSync.username=u;
+    fccSync.completedIds=completed;
+    fccSync.lastSync=new Date().toISOString();
+    fccSync.lastError=null;
+    saveFCC();
     updateFCCPanel();
-    const done=fccCurriculum.lessons.filter(x=>completedSet.has(x.id)).length;
+    const done=fccCurriculum.lessons.filter(x=>completed.includes(x.id)).length;
     const pct=Math.round(done/fccCurriculum.lessons.length*100);
     setFCCStatus('Synced successfully — '+done+' of '+fccCurriculum.lessons.length+' JavaScript v9 tasks completed ('+pct+'%).','success');
   }catch(e){
-    fccSync.username=u;fccSync.lastError=String(e?.message||e);saveFCC();updateFCCPanel();setFCCStatus('Sync failed: '+fccSync.lastError,'error');
-  }finally{b.disabled=false;b.textContent='Sync progress'}
+    fccSync.username=u;
+    fccSync.lastError=String(e?.message||e);
+    saveFCC();
+    updateFCCPanel();
+    setFCCStatus('Sync failed: '+fccSync.lastError,'error');
+  }finally{
+    b.disabled=false;b.textContent='Sync progress';
+  }
 }
 function toggleFCCAuto(){fccSync.auto=!fccSync.auto;saveFCC();document.getElementById('fccAutoBtn').textContent='Auto-sync: '+(fccSync.auto?'ON':'OFF');setFCCStatus(fccSync.auto?'Auto-sync is ON.':'Auto-sync is OFF. Use Sync progress whenever you want.')}
 
