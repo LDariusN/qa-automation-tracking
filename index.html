@@ -199,4 +199,23 @@ function runQaSmokeV3(){
   document.body.setAttribute('data-qa-result',fail.length?'FAIL':'PASS');
   document.body.innerHTML='<pre id="qa-result">'+(fail.length?'QA_FAIL\n'+fail.join('\n'):'QA_PASS\n14 phases\n160 roadmap units\n1341 FCC lessons\n207 synced completions\nMotivation dashboard OK\nMastery workflow OK\nPersistence OK')+'\nDIAGNOSTICS\n'+qaDiag+'</pre>';
 }
-function resetAll(){if(confirm('Reset all roadmap progress?')){qaStorage.removeItem('qaCourseRoadmapV4');qaStorage.removeItem('qaPhaseUnitsV1');qaStorage.removeItem('qaMasteryV1');location.reload()}}try{render();update();updateFCCPanelV5();loadStaticFCCCurriculumV5();loadStaticFCCProgressV5();renderMotivation();}catch(e){document.documentElement.setAttribute('data-roadmap-startup-error',String(e?.stack||e));if(new URLSearchParams(location.search).get('qa-smoke')!=='1')throw e}if(fccV5.auto&&fccV5.username)setTimeout(syncFCC,1200);if(new URLSearchParams(location.search).get('qa-smoke')==='1')setTimeout(runQaSmokeV3,3500);setInterval(()=>{if(fccV5.auto&&fccV5.username&&document.visibilityState==='visible')syncFCC()},10*60*1000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&fccV5.auto&&fccV5.username)syncFCC()});</script></body></html>
+function resetAll(){if(confirm('Reset all roadmap progress?')){qaStorage.removeItem('qaCourseRoadmapV4');qaStorage.removeItem('qaPhaseUnitsV1');qaStorage.removeItem('qaMasteryV1');qaStorage.removeItem('qaMotivationV2');location.reload()}}
+async function bootstrapRoadmapV3(){
+  const timeout=(promise,ms,label)=>Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error(label+' timed out after '+ms+'ms')),ms))]);
+  render();
+  update();
+  updateFCCPanelV5();
+  await timeout(loadStaticFCCCurriculumV5(),8000,'FCC curriculum load');
+  await timeout(loadStaticFCCProgressV5(),5000,'FCC progress load');
+  renderMotivation();
+  if(fccV5.auto&&fccV5.username)setTimeout(syncFCC,1200);
+}
+bootstrapRoadmapV3().then(()=>{
+  if(new URLSearchParams(location.search).get('qa-smoke')==='1')setTimeout(runQaSmokeV3,500);
+}).catch(e=>{
+  document.documentElement.setAttribute('data-roadmap-startup-error',String(e?.stack||e));
+  if(new URLSearchParams(location.search).get('qa-smoke')==='1')setTimeout(runQaSmokeV3,500);
+  else console.error(e);
+});
+setInterval(()=>{if(fccV5.auto&&fccV5.username&&document.visibilityState==='visible')syncFCC()},10*60*1000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&fccV5.auto&&fccV5.username)syncFCC()});</script></body></html>
