@@ -195,6 +195,7 @@ function runQaSmokeV3(){
     }
     document.querySelector('[data-qa-probe]')?.remove();
     need('global learned count is unchanged by mastery controls',(document.getElementById('done')?.textContent||'')==='1');  }catch(e){fail.push('QA exception: '+String(e?.message||e))}
+  const qaDiag=JSON.stringify({done:document.getElementById('done')?.textContent||'?',mastered:document.querySelectorAll('.phase-unit.mastered').length,masteryChecked:[...document.querySelectorAll('input[data-mastery]:checked')].length,phase0Mastery:document.getElementById('masteryMeta-0')?.textContent||'?',rendered:document.documentElement.getAttribute('data-roadmap-rendered')});
   document.title=fail.length?'QA_FAIL':'QA_PASS';
   document.body.setAttribute('data-qa-result',fail.length?'FAIL':'PASS');
   document.body.innerHTML='<pre id="qa-result">'+(fail.length?'QA_FAIL\n'+fail.join('\n'):'QA_PASS\n14 phases\n160 roadmap units\n1341 FCC lessons\n207 synced completions\nMotivation dashboard OK\nMastery workflow OK\nPersistence OK')+'</pre>';
