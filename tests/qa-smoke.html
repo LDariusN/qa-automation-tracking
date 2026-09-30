@@ -45,7 +45,20 @@
   need('XP visible',/XP/.test(d.getElementById('motXp')?.textContent||''));
   need('career progress',d.querySelectorAll('.career-phase').length===14);
   need('FCC sync function exposed',typeof w.syncFCC==='function');
+  const diagnostics={
+    phases:d.querySelectorAll('.phase').length,
+    trackers:d.querySelectorAll('.phase-tracker').length,
+    summaries:d.querySelectorAll('.mastery-summary').length,
+    roadmapUnits:d.querySelectorAll('input[data-roadmap-unit]').length,
+    masteryInputs:d.querySelectorAll('input[data-mastery]').length,
+    fccDashboard:!!d.querySelector('.fcc-v5-dashboard'),
+    fccLessons:d.querySelectorAll('.fcc-v5-lesson').length,
+    completed:d.getElementById('fccCompletedCount')?.textContent||'?',
+    progress:d.getElementById('fccProgressPct')?.textContent||'?',
+    mission:d.getElementById('missionTitle')?.textContent||'?',
+    appPrefix:(d.getElementById('app')?.textContent||'').slice(0,300)
+  };
   document.title=fail.length?'QA_FAIL':'QA_PASS';
-document.body.innerHTML='<pre id="qa-result">'+(fail.length?'QA_FAIL\n'+fail.join('\n'):'QA_PASS\n14 phases\n1341 FCC lessons\n207 synced completions\nMotivation dashboard OK\nSync button OK\nMastery workflow OK\nPersistence OK')+'</pre>';
+  document.body.innerHTML='<pre id="qa-result">'+(fail.length?'QA_FAIL\n'+fail.join('\n'):'QA_PASS\n14 phases\n1341 FCC lessons\n207 synced completions\nMotivation dashboard OK\nSync button OK\nMastery workflow OK\nPersistence OK')+'\nDIAGNOSTICS\n'+JSON.stringify(diagnostics,null,2)+'</pre>';
 })();
 </script>
