@@ -176,28 +176,25 @@ function runQaSmokeV3(){
     need('today mission populated',(document.getElementById('missionTitle')?.textContent||'').length>0&&document.getElementById('missionTitle').textContent!=='Loading your next mission…');
     need('XP visible',/XP/.test(document.getElementById('motXp')?.textContent||''));
     need('career progress',document.querySelectorAll('.career-phase').length===14);
-    const probe=renderPhaseTracker(0);
-    probe.setAttribute('data-qa-probe','mastery');
-    document.body.appendChild(probe);
-    const first=probe.querySelector('input[data-roadmap-unit]');
+    const unitInputs=document.querySelectorAll('.phase-unit input[type="checkbox"]');
+    const first=unitInputs.item(0);
     const key=first?.dataset.phaseUnit||'';
-    const row0=key?probe.querySelector('[data-phase-row="'+key+'"]'):null;
+    const row0=key?document.querySelector('[data-phase-row="'+key+'"]'):null;
+    need('first roadmap unit accessible',!!first);
     need('mastery disabled before learning',!!row0&&row0.querySelectorAll('input[data-mastery][disabled]').length===2);
     if(first&&row0){
       first.click();
-      const row1=probe.querySelector('[data-phase-row="'+key+'"]');
+      const row1=document.querySelector('[data-phase-row="'+key+'"]');
       const controls=row1?[...row1.querySelectorAll('input[data-mastery]')]:[];
       need('mastery enabled after learning',controls.length===2&&controls.every(x=>!x.disabled));
       controls[0]?.click();
       controls[1]?.click();
-      const row2=probe.querySelector('[data-phase-row="'+key+'"]');
+      const row2=document.querySelector('[data-phase-row="'+key+'"]');
       need('MASTERED after recall + apply',row2?.classList.contains('mastered')&&row2.querySelector('.mastery-badge')?.textContent==='MASTERED');
-    }
-    document.querySelector('[data-qa-probe]')?.remove();
-    need('global learned count is unchanged by mastery controls',(document.getElementById('done')?.textContent||'')==='1');  }catch(e){fail.push('QA exception: '+String(e?.message||e))}
-  const qaDiag=JSON.stringify({done:document.getElementById('done')?.textContent||'?',mastered:document.querySelectorAll('.phase-unit.mastered').length,masteryChecked:[...document.querySelectorAll('input[data-mastery]:checked')].length,phase0Mastery:document.getElementById('masteryMeta-0')?.textContent||'?',rendered:document.documentElement.getAttribute('data-roadmap-rendered')});
+      need('global learned count is one',(document.getElementById('done')?.textContent||'')==='1');
+    }  const qaDiag=JSON.stringify({done:document.getElementById('done')?.textContent||'?',mastered:document.querySelectorAll('.phase-unit.mastered').length,masteryChecked:[...document.querySelectorAll('input[data-mastery]:checked')].length,phase0Mastery:document.getElementById('masteryMeta-0')?.textContent||'?',rendered:document.documentElement.getAttribute('data-roadmap-rendered')});
   document.title=fail.length?'QA_FAIL':'QA_PASS';
   document.body.setAttribute('data-qa-result',fail.length?'FAIL':'PASS');
-  document.body.innerHTML='<pre id="qa-result">'+(fail.length?'QA_FAIL\n'+fail.join('\n'):'QA_PASS\n14 phases\n160 roadmap units\n1341 FCC lessons\n207 synced completions\nMotivation dashboard OK\nMastery workflow OK\nPersistence OK')+'</pre>';
+  document.body.innerHTML='<pre id="qa-result">'+(fail.length?'QA_FAIL\n'+fail.join('\n'):'QA_PASS\n14 phases\n160 roadmap units\n1341 FCC lessons\n207 synced completions\nMotivation dashboard OK\nMastery workflow OK\nPersistence OK')+'\nDIAGNOSTICS\n'+qaDiag+'</pre>';
 }
 function resetAll(){if(confirm('Reset all roadmap progress?')){qaStorage.removeItem('qaCourseRoadmapV4');qaStorage.removeItem('qaPhaseUnitsV1');qaStorage.removeItem('qaMasteryV1');location.reload()}}try{render();update();updateFCCPanelV5();loadStaticFCCCurriculumV5();loadStaticFCCProgressV5();renderMotivation();}catch(e){document.documentElement.setAttribute('data-roadmap-startup-error',String(e?.stack||e));if(new URLSearchParams(location.search).get('qa-smoke')!=='1')throw e}if(fccV5.auto&&fccV5.username)setTimeout(syncFCC,1200);if(new URLSearchParams(location.search).get('qa-smoke')==='1')setTimeout(runQaSmokeV3,3500);setInterval(()=>{if(fccV5.auto&&fccV5.username&&document.visibilityState==='visible')syncFCC()},10*60*1000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&fccV5.auto&&fccV5.username)syncFCC()});</script></body></html>
