@@ -209,9 +209,9 @@ function runQaSmokeV3(){
       need('mastery enabled after learning',controls.length===2&&controls.every(x=>!x.disabled));
       controls[0]?.click();
       controls[1]?.click();
+      const row2=document.querySelector('[data-phase-row="'+key+'"]');
       const ev1=row2?.querySelector('[data-mastery-evidence="recall"]'); if(ev1){ev1.value='I can explain this concept clearly';ev1.dispatchEvent(new Event('input',{bubbles:true}))}
       const ev2=row2?.querySelector('[data-mastery-evidence="apply"]'); if(ev2){ev2.value='I used it in a coding exercise';ev2.dispatchEvent(new Event('input',{bubbles:true}))}
-      const row2=document.querySelector('[data-phase-row="'+key+'"]');
       need('MASTERED after recall + apply',row2?.classList.contains('mastered')&&row2.querySelector('.mastery-badge')?.textContent==='MASTERED');
       need('global learned count is one',(document.getElementById('done')?.textContent||'')==='1');
     }
