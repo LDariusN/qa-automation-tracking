@@ -175,7 +175,7 @@ function runQaSmokeV3(){
     need('today mission populated',(document.getElementById('missionTitle')?.textContent||'').length>0&&document.getElementById('missionTitle').textContent!=='Loading your next mission…');
     need('XP visible',/XP/.test(document.getElementById('motXp')?.textContent||''));
     need('career progress',document.querySelectorAll('.career-phase').length===14);
-    const first=document.querySelector('input[data-roadmap-unit]');
+    const first=document.querySelectorAll('input[data-roadmap-unit]')[0];
     if(first){
       const key=first.dataset.phaseUnit;
       const row0=document.querySelector('[data-phase-row="'+key+'"]');
