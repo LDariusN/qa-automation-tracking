@@ -5,6 +5,11 @@ const response = await fetch(BASE + 'curriculum/structure/superblocks/javascript
 if (!response.ok) throw new Error('Failed to fetch JavaScript v9 superblock: ' + response.status);
 const superblock = await response.json();
 
+const introResponse = await fetch(BASE + 'client/i18n/locales/english/intro.json');
+if (!introResponse.ok) throw new Error('Failed to fetch freeCodeCamp intro metadata: ' + introResponse.status);
+const intro = await introResponse.json();
+const blockMeta = intro?.['javascript-v9']?.blocks ?? {};
+
 const modules = [];
 const jobs = [];
 
@@ -43,6 +48,7 @@ async function worker() {
         title: challenge.title,
         module: null,
         block: data.dashedName ?? block,
+        blockTitle: blockMeta?.[data.dashedName ?? block]?.title ?? null,
         kind: data.blockLabel ?? 'lesson'
       }))
     };
