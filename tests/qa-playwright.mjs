@@ -61,6 +61,20 @@ try{
   need('JS v9 completed count matches curriculum',await page.locator('#fccCompletedCount').textContent()===String(expectedJsCompleted));
   const expectedPct=expectedCurriculumTotal?Math.round(expectedJsCompleted/expectedCurriculumTotal*100):0;
   need('JS v9 progress matches curriculum',await page.locator('#fccProgressPct').textContent()===expectedPct+'%');
+  const expectedFirstFccTitles=[
+    'What Is JavaScript, and How Does It Work with HTML and CSS?',
+    'What Is a Data Type, and What Are the Different Data Types in JavaScript?',
+    'What Are Variables, and What Are Guidelines for Naming JavaScript Variables?',
+    'How Do let and const Work Differently When It Comes to Variable Declaration, Assignment, and Reassignment?',
+    'What Is a String in JavaScript, and What Is String Immutability?',
+    'What Is String Concatenation, and How Can You Concatenate Strings with Variables?',
+    'What Is console.log Used For, and How Does It Work?',
+    'What Is the Role of Semicolons in JavaScript, and Programming in General?',
+    'What Are Comments in JavaScript, and When Should You Use Them?',
+    'Step 1'
+  ];
+  const actualFirstFccTitles=curriculumLessons.slice(0,expectedFirstFccTitles.length).map(lesson=>lesson.title);
+  need('FCC lesson order matches source canary',JSON.stringify(actualFirstFccTitles)===JSON.stringify(expectedFirstFccTitles));
   need('mission populated',!['','Loading your next mission…'].includes((await page.locator('#missionTitle').textContent())||''));
   need('FCC mission metadata has module name',!(await page.locator('#missionMeta').textContent()).includes('undefined'));
   need('XP visible',(await page.locator('#motXp').textContent()).includes('XP'));
