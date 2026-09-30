@@ -45,8 +45,18 @@ page.on('console',msg=>{if(msg.type()==='error')consoleErrors.push(msg.text())})
 const failures=[];
 const need=(name,ok)=>{if(!ok)failures.push(name)};
 const url='http://127.0.0.1:'+port+'/index.html?qa=1';
+const expectedNextFCC=curriculumLessons.find(lesson=>!completedSet.has(lesson.id));
 
 try{
+  await page.addInitScript(()=>{
+    localStorage.setItem('qaLastActiveUnit',JSON.stringify({
+      type:'fcc',
+      title:'What Is ASCII, and How Does It Work with charCodeAt() and fromCharCode()?',
+      id:'stale-fcc-resume',
+      url:'https://www.freecodecamp.org/learn/javascript-v9/old-stale-target',
+      desc:'stale cached FCC target'
+    }));
+  });
   await page.goto(url,{waitUntil:'domcontentloaded'});
   await page.waitForFunction(expected=>document.querySelector('#fccCompletedCount')?.textContent===String(expected),expectedJsCompleted,{timeout:10000});
 
@@ -76,6 +86,8 @@ try{
   const actualFirstFccTitles=curriculumLessons.slice(0,expectedFirstFccTitles.length).map(lesson=>lesson.title);
   need('FCC lesson order matches source canary',JSON.stringify(actualFirstFccTitles)===JSON.stringify(expectedFirstFccTitles));
   need('mission populated',!['','Loading your next mission…'].includes((await page.locator('#missionTitle').textContent())||''));
+  need('resume follows current FCC next lesson',expectedNextFCC && (await page.locator('#resumeBtn').textContent())===('Resume: '+expectedNextFCC.title));
+  need('resume does not use stale FCC target',!(await page.locator('#resumeBtn').textContent()).includes('ASCII, and How Does It Work with charCodeAt()'));
   need('FCC mission metadata has module name',!(await page.locator('#missionMeta').textContent()).includes('undefined'));
   need('XP visible',(await page.locator('#motXp').textContent()).includes('XP'));
   need('14 career cards',await page.locator('.career-phase').count()===14);
