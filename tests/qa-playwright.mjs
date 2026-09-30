@@ -6,7 +6,12 @@ import { chromium } from 'playwright';
 const root = process.cwd();
 const html = await fs.readFile(path.join(root, 'index.html'));
 const curriculum = await fs.readFile(path.join(root, 'fcc-javascript-v9.json'));
-const progress = await fs.readFile(path.join(root, 'fcc-progress.json'));
+const progress = await fs.readFile(path.join(root, 'fcc-progress.json'));\nconst curriculumData = JSON.parse(curriculum);
+const progressData = JSON.parse(progress);
+const completedSet = new Set(progressData?.completedChallengeIds || []);
+const expectedJsCompleted = (curriculumData?.lessons || []).filter(lesson => completedSet.has(lesson.id)).length;
+const expectedFccOverall = Number(progressData?.completedCount || completedSet.size);
+
 
 const routes = new Map([
   ['/index.html', {type:'text/html; charset=utf-8', body:html}],
@@ -38,7 +43,7 @@ const need=(name,ok)=>{if(!ok)failures.push(name)};
 
 try{
   await page.goto('http://127.0.0.1:'+port+'/index.html?qa=1',{waitUntil:'domcontentloaded'});
-  await page.waitForTimeout(2500);
+  await page.waitForFunction((expected)=>document.querySelector('#fccCompletedCount')?.textContent===String(expected),expectedJsCompleted,{timeout:10000});
 
   need('14 phases',await page.locator('.phase').count()===14);
   need('14 phase trackers',await page.locator('.phase-tracker').count()===14);
@@ -47,8 +52,10 @@ try{
   need('320 mastery controls',await page.locator('input[data-mastery]').count()===320);
   need('FCC dashboard',await page.locator('.fcc-v5-dashboard').count()===1);
   need('1341 FCC lessons',await page.locator('.fcc-v5-lesson').count()===1341);
-  need('207 completed FCC tasks',await page.locator('#fccCompletedCount').textContent()==='207');
-  need('FCC progress nonzero',await page.locator('#fccProgressPct').textContent()!=='0%');
+  need('FCC overall count',await page.locator('#fccOverallCount').textContent()===String(expectedFccOverall));
+  need('JS v9 completed count matches curriculum',await page.locator('#fccCompletedCount').textContent()===String(expectedJsCompleted));
+  const expectedPct = Math.round((expectedJsCompleted/1341)*100);
+  need('JS v9 progress matches curriculum',await page.locator('#fccProgressPct').textContent()===expectedPct+'%');
   need('mission populated',!['','Loading your next mission…'].includes((await page.locator('#missionTitle').textContent())||''));
   need('XP visible',(await page.locator('#motXp').textContent()).includes('XP'));
   need('14 career cards',await page.locator('.career-phase').count()===14);
@@ -100,7 +107,8 @@ try{
   console.log('160 roadmap units');
   console.log('320 mastery controls');
   console.log('1341 FCC lessons');
-  console.log('207 synced FCC completions');
+  console.log('FCC overall: '+expectedFccOverall);
+  console.log('JS v9 completed: '+expectedJsCompleted);
   console.log('Learned → Recall → Apply → MASTERED');
   console.log('Persistence after reload OK');
 } finally{
