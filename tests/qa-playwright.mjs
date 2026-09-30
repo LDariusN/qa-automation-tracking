@@ -98,6 +98,7 @@ try{
 
   // Load every FCC module on demand and verify all generated lessons.
   await page.locator('details[data-fcc-module]').evaluateAll(ds=>ds.forEach(d=>{d.open=true}));
+  await page.locator('details[data-fcc-workshop]').evaluateAll(ds=>ds.forEach(d=>{d.open=true}));
   await page.waitForFunction(expected=>document.querySelectorAll('.fcc-v5-lesson').length===expected,expectedCurriculumTotal,{timeout:10000});
   need('all FCC lessons render after module expansion',await page.locator('.fcc-v5-lesson').count()===expectedCurriculumTotal);
 
