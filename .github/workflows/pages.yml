@@ -7,34 +7,45 @@ on:
   schedule:
     - cron: "*/10 * * * *"
 
-permissions:
-  contents: write
-  pages: write
-  id-token: write
-
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Build freeCodeCamp curriculum data
         run: node scripts/build-fcc-curriculum.mjs
       - name: Sync freeCodeCamp progress
         run: node scripts/update-fcc-progress.mjs
-      - name: Upload site
-        uses: actions/upload-pages-artifact@v3
+      - name: Verify generated site data
+        run: |
+          test -s fcc-javascript-v9.json
+          test -s fcc-progress.json
+          node -e "const c=require('./fcc-javascript-v9.json'); const p=require('./fcc-progress.json'); if(c.total!==1341) throw new Error('Unexpected FCC curriculum size: '+c.total); if(p.completedCount!==207) throw new Error('Unexpected FCC progress count: '+p.completedCount); console.log('Verified '+c.total+' FCC tasks and '+p.completedCount+' completed tasks.')"
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v4
         with:
           path: .
-      - name: Deploy
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
