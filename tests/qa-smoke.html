@@ -17,6 +17,7 @@
   const need=(name,ok)=>{if(!ok)fail.push(name)};
   need('motivation panel',!!d.getElementById('motivationPanel'));
   const firstUnit=d.querySelector('input[data-roadmap-unit]');
+  console.log('DOM_COUNTS',JSON.stringify({phases:d.querySelectorAll('.phase').length,trackers:d.querySelectorAll('.phase-tracker').length,summaries:d.querySelectorAll('.mastery-summary').length,units:d.querySelectorAll('input[data-roadmap-unit]').length,mastery:d.querySelectorAll('input[data-mastery]').length,fcc:d.querySelectorAll('.fcc-v5-lesson').length,motivation:!!d.getElementById('motivationPanel'),appText:(d.getElementById('app')?.textContent||'').slice(0,300)}));
   need('mastery summary per phase',d.querySelectorAll('.mastery-summary').length===14);
   need('mastery controls present',d.querySelectorAll('input[data-mastery]').length===d.querySelectorAll('input[data-roadmap-unit]').length*2);
   need('mastery controls disabled before learning',!!firstUnit&&!firstUnit.checked&&firstUnit.closest('.phase-unit').querySelectorAll('input[data-mastery][disabled]').length===2);
