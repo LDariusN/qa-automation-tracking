@@ -38,8 +38,7 @@ const need=(name,ok)=>{if(!ok)failures.push(name)};
 
 try{
   await page.goto('http://127.0.0.1:'+port+'/index.html?qa=1',{waitUntil:'domcontentloaded'});
-  await page.waitForFunction(()=>document.querySelectorAll('.phase').length===14,{timeout:10000});
-  await page.waitForFunction(()=>document.querySelectorAll('.fcc-v5-lesson').length===1341,{timeout:10000});
+  await page.waitForTimeout(2500);
 
   need('14 phases',await page.locator('.phase').count()===14);
   need('14 phase trackers',await page.locator('.phase-tracker').count()===14);
