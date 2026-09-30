@@ -51,6 +51,12 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 await sleep(1200);
 
 const failures = [];
+const debug = {
+  beforeDisabled: undefined,
+  afterEnabled: undefined,
+  mastered: undefined,
+  done: undefined
+};
 const need = (name, ok) => { if (!ok) failures.push(name); };
 
 need('14 phases', document.querySelectorAll('.phase').length === 14);
@@ -73,21 +79,25 @@ if (!first) {
   const key = first.dataset.phaseUnit;
   const getRow = () => document.querySelector('[data-phase-row="'+key+'"]');
   let row = getRow();
-  need('mastery disabled before learning', row?.querySelectorAll('input[data-mastery][disabled]').length === 2);
+  debug.beforeDisabled=row?.querySelectorAll('input[data-mastery][disabled]').length||0;
+  need('mastery disabled before learning', debug.beforeDisabled===2);
 
   first.click();
   await sleep(20);
   row = getRow();
   const controls = row ? [...row.querySelectorAll('input[data-mastery]')] : [];
-  need('mastery enables after learning', controls.length === 2 && controls.every(x => !x.disabled));
+  debug.afterEnabled=controls.filter(x=>!x.disabled).length;
+  need('mastery enables after learning', controls.length===2&&debug.afterEnabled===2);
 
   controls[0]?.click();
   controls[1]?.click();
   await sleep(20);
   row = getRow();
-  need('row becomes MASTERED', row?.classList.contains('mastered'));
+  debug.mastered=!!row?.classList.contains('mastered');
+  need('row becomes MASTERED', debug.mastered);
   need('MASTERED badge shown', row?.querySelector('.mastery-badge')?.textContent === 'MASTERED');
-  need('learned count remains one', document.getElementById('done')?.textContent === '1');
+  debug.done=document.getElementById('done')?.textContent||'?';
+  need('learned count remains one', debug.done==='1');
 
   const stored = JSON.parse(window.localStorage.getItem('qaMasteryV1') || '{}');
   need('mastery persisted', stored[key]?.recall === true && stored[key]?.apply === true);
