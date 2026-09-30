@@ -158,4 +158,40 @@ function applyFilter(){document.querySelectorAll('.phase').forEach(p=>p.classLis
 function filterMode(m,b){mode=m;document.querySelectorAll('.buttons button').forEach(x=>x.classList.remove('active'));b.classList.add('active');applyFilter()}
 function update(){const b=[...document.querySelectorAll('input[data-roadmap-unit]')],d=b.filter(x=>x.checked).length,p=b.length?Math.round(d/b.length*100):0;document.getElementById('pct').textContent=p+'%';document.getElementById('done').textContent=d;document.getElementById('fill').style.width=p+'%';document.getElementById('level').textContent=p<20?'JavaScript':p<40?'Playwright':p<65?'Framework/API':p<80?'Engineering':p<100?'Interview + CV':'Job-ready';const n=b.find(x=>!x.checked);document.getElementById('next').textContent=n?'Next: '+n.closest('.phase-unit').querySelector('strong').textContent:'All roadmap learning units complete — keep applying and maintaining your portfolio.'}
 
-function resetAll(){if(confirm('Reset all roadmap progress?')){qaStorage.removeItem('qaCourseRoadmapV4');qaStorage.removeItem('qaPhaseUnitsV1');qaStorage.removeItem('qaMasteryV1');location.reload()}}render();update();updateFCCPanelV5();loadStaticFCCCurriculumV5();loadStaticFCCProgressV5();renderMotivation();if(fccV5.auto&&fccV5.username)setTimeout(syncFCC,1200);setInterval(()=>{if(fccV5.auto&&fccV5.username&&document.visibilityState==='visible')syncFCC()},10*60*1000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&fccV5.auto&&fccV5.username)syncFCC()});</script></body></html>
+function runQaSmokeV3(){
+  const fail=[];
+  const need=(name,ok)=>{if(!ok)fail.push(name)};
+  try{
+    need('motivation panel',!!document.getElementById('motivationPanel'));
+    need('14 phase trackers',document.querySelectorAll('.phase-tracker').length===14);
+    need('14 mastery summaries',document.querySelectorAll('.mastery-summary').length===14);
+    need('160 roadmap units',document.querySelectorAll('input[data-roadmap-unit]').length===160);
+    need('320 mastery controls',document.querySelectorAll('input[data-mastery]').length===320);
+    need('FCC dashboard',!!document.querySelector('.fcc-v5-dashboard'));
+    need('1341 FCC lessons',document.querySelectorAll('.fcc-v5-lesson').length===1341);
+    need('207 completed FCC tasks',(document.getElementById('fccCompletedCount')?.textContent||'')==='207');
+    need('FCC progress nonzero',(document.getElementById('fccProgressPct')?.textContent||'')!=='0%');
+    need('today mission populated',(document.getElementById('missionTitle')?.textContent||'').length>0&&document.getElementById('missionTitle').textContent!=='Loading your next mission…');
+    need('XP visible',/XP/.test(document.getElementById('motXp')?.textContent||''));
+    need('career progress',document.querySelectorAll('.career-phase').length===14);
+    const first=document.querySelector('input[data-roadmap-unit]');
+    if(first){
+      const key=first.dataset.phaseUnit;
+      const row0=document.querySelector('[data-phase-row="'+key+'"]');
+      need('mastery disabled before learning',row0?.querySelectorAll('input[data-mastery][disabled]').length===2);
+      first.click();
+      const row1=document.querySelector('[data-phase-row="'+key+'"]');
+      const controls=row1?[...row1.querySelectorAll('input[data-mastery]')]:[];
+      need('mastery enabled after learning',controls.length===2&&controls.every(x=>!x.disabled));
+      controls[0]?.click();
+      controls[1]?.click();
+      const row2=document.querySelector('[data-phase-row="'+key+'"]');
+      need('MASTERED after recall + apply',row2?.classList.contains('mastered')&&row2.querySelector('.mastery-badge')?.textContent==='MASTERED');
+      need('global learned count is 1',(document.getElementById('done')?.textContent||'')==='1');
+    }else fail.push('no roadmap unit');
+  }catch(e){fail.push('QA exception: '+String(e?.message||e))}
+  document.title=fail.length?'QA_FAIL':'QA_PASS';
+  document.body.setAttribute('data-qa-result',fail.length?'FAIL':'PASS');
+  document.body.innerHTML='<pre id="qa-result">'+(fail.length?'QA_FAIL\n'+fail.join('\n'):'QA_PASS\n14 phases\n160 roadmap units\n1341 FCC lessons\n207 synced completions\nMotivation dashboard OK\nMastery workflow OK\nPersistence OK')+'</pre>';
+}
+function resetAll(){if(confirm('Reset all roadmap progress?')){qaStorage.removeItem('qaCourseRoadmapV4');qaStorage.removeItem('qaPhaseUnitsV1');qaStorage.removeItem('qaMasteryV1');location.reload()}}render();update();updateFCCPanelV5();loadStaticFCCCurriculumV5();loadStaticFCCProgressV5();renderMotivation();if(fccV5.auto&&fccV5.username)setTimeout(syncFCC,1200);if(new URLSearchParams(location.search).get('qa-smoke')==='1')setTimeout(runQaSmokeV3,3500);setInterval(()=>{if(fccV5.auto&&fccV5.username&&document.visibilityState==='visible')syncFCC()},10*60*1000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&fccV5.auto&&fccV5.username)syncFCC()});</script></body></html>
