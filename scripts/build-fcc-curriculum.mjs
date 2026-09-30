@@ -22,29 +22,41 @@ for (const chapter of superblock.chapters ?? []) {
   }
 }
 
+const results = new Array(jobs.length);
 let cursor = 0;
+
 async function worker() {
   while (true) {
     const i = cursor++;
     if (i >= jobs.length) return;
 
-    const { module, block } = jobs[i];
+    const { block } = jobs[i];
     const r = await fetch(BASE + 'curriculum/structure/blocks/' + block + '.json');
     if (!r.ok) throw new Error('Failed to fetch block ' + block + ': ' + r.status);
 
     const data = await r.json();
-    for (const challenge of data.challengeOrder ?? []) {
-      module.lessons.push({
+    results[i] = {
+      block,
+      data,
+      lessons: (data.challengeOrder ?? []).map(challenge => ({
         id: challenge.id,
         title: challenge.title,
         block: data.dashedName ?? block,
         kind: data.blockLabel ?? 'lesson'
-      });
-    }
+      }))
+    };
   }
 }
 
 await Promise.all(Array.from({ length: Math.min(12, jobs.length) }, worker));
+
+// Fetch concurrently for speed, but assemble strictly in the curriculum's
+// declared module/block order. Network response timing must never affect
+// the learner-facing lesson order.
+for (let i = 0; i < jobs.length; i++) {
+  const { module } = jobs[i];
+  for (const lesson of results[i].lessons) module.lessons.push(lesson);
+}
 
 const seen = new Set();
 const lessons = [];
