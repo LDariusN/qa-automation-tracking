@@ -5,7 +5,7 @@ on:
     branches: [main]
   workflow_dispatch:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "0 * * * *"
 
 concurrency:
   group: pages
@@ -37,11 +37,14 @@ jobs:
           node - <<'NODE'
           const curriculum = require('./fcc-javascript-v9.json');
           const progress = require('./fcc-progress.json');
-          if (curriculum.total !== 1341) {
-            throw new Error('Unexpected FCC curriculum size: ' + curriculum.total);
+          if (!Number.isInteger(curriculum.total) || curriculum.total <= 0) {
+            throw new Error('Invalid FCC curriculum size: ' + curriculum.total);
           }
-          if (progress.completedCount !== 207) {
-            throw new Error('Unexpected FCC progress count: ' + progress.completedCount);
+          if (!Number.isInteger(progress.completedCount) || progress.completedCount < 0 || progress.completedCount > curriculum.total) {
+            throw new Error('Invalid FCC progress count: ' + progress.completedCount);
+          }
+          if (!Array.isArray(progress.completedChallengeIds)) {
+            throw new Error('FCC completedChallengeIds is not an array');
           }
           console.log('Verified ' + curriculum.total + ' FCC tasks and ' + progress.completedCount + ' completed tasks.');
           NODE
