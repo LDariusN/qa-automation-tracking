@@ -125,6 +125,7 @@ function renderMotivation(){
  const cg=document.getElementById('careerGrid');if(cg)cg.innerHTML=phaseUnitsV1.map((u,pi)=>{const st=JSON.parse(qaStorage.getItem('qaPhaseUnitsV1')||'{}'),d=u.filter((_,i)=>st[phaseUnitKey(pi,i)]).length,pct=u.length?Math.round(d/u.length*100):0;return'<div class="career-phase"><div class="career-phase-title">Phase '+pi+'</div><div class="career-phase-pct">'+pct+'%</div><div class="career-phase-bar"><div style="width:'+pct+'%"></div></div></div>'}).join('');
 }
 const MASTERY_KEY='qaMasteryV1';
+function phaseUnitKey(pi,i){return 'p'+pi+'u'+i}
 function getMasteryState(){try{return JSON.parse(qaStorage.getItem(MASTERY_KEY)||'{}')}catch(_e){return{}}}
 function saveMasteryState(st){qaStorage.setItem(MASTERY_KEY,JSON.stringify(st))}
 function masteryKey(pi,i){return phaseUnitKey(pi,i)}
