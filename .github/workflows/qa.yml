@@ -2,7 +2,7 @@ name: Roadmap QA
 
 on:
   push:
-    branches: [main, v2-motivation-system]
+    branches: [main, v2-motivation-system, v3-mastery-system]
   pull_request:
     branches: [main]
 
