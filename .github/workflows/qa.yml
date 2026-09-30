@@ -21,6 +21,10 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
 
       - name: Build FCC curriculum
         run: node scripts/build-fcc-curriculum.mjs
@@ -28,11 +32,17 @@ jobs:
       - name: Sync FCC progress
         run: node scripts/update-fcc-progress.mjs
 
-      - name: Install Playwright
-        run: npm install --no-save playwright
-
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
       - name: Run browser QA
-        run: node tests/qa-playwright.mjs
+        run: npm run qa
+
+      - name: Upload visual smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-visual-smoke
+          path: artifacts/
+          if-no-files-found: ignore
+          retention-days: 7
