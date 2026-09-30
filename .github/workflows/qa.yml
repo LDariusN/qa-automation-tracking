@@ -27,6 +27,6 @@ jobs:
         run: python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/qa-http.log 2>&1 &
       - name: Chromium smoke test
         run: |
-          chromium --headless --no-sandbox --disable-gpu --dump-dom http://127.0.0.1:4173/tests/qa-smoke.html > /tmp/qa-dom.html
+          chromium --headless --no-sandbox --disable-gpu --virtual-time-budget=12000 --dump-dom http://127.0.0.1:4173/tests/qa-smoke.html > /tmp/qa-dom.html
           grep -q "QA_PASS" /tmp/qa-dom.html
           cat /tmp/qa-dom.html
