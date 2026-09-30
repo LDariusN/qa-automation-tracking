@@ -15,33 +15,23 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
       - name: Build FCC curriculum
         run: node scripts/build-fcc-curriculum.mjs
+
       - name: Sync FCC progress
         run: node scripts/update-fcc-progress.mjs
-      - name: Install JSDOM
-        run: npm install --no-save jsdom
-      - name: Functional QA
-        run: node tests/qa-jsdom.mjs
 
-  reachability:
-    runs-on: ubuntu-latest
-    needs: functional
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Start local server and check page
-        run: |
-          python3 -m http.server 4173 --bind 127.0.0.1 --directory "$GITHUB_WORKSPACE" >/tmp/qa-http.log 2>&1 &
-          SERVER_PID=$!
-          trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
-          sleep 1
-          curl --fail --silent --show-error "http://127.0.0.1:4173/index.html" -o /tmp/index.html
-          test -s /tmp/index.html
-          grep -q '<title>QA Automation Roadmap</title>' /tmp/index.html
-          chromium --headless --no-sandbox --disable-gpu --dump-dom "http://127.0.0.1:4173/index.html" >/tmp/qa-dom.html
-          grep -q 'QA Automation Roadmap' /tmp/qa-dom.html
+      - name: Install Playwright
+        run: npm install --no-save playwright
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser QA
+        run: node tests/qa-playwright.mjs
