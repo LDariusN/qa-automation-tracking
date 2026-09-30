@@ -9,9 +9,15 @@ const curriculum = await fs.readFile(path.join(root, 'fcc-javascript-v9.json'));
 const progress = await fs.readFile(path.join(root, 'fcc-progress.json'));
 const curriculumData = JSON.parse(curriculum);
 const progressData = JSON.parse(progress);
+const curriculumLessons = Array.isArray(curriculumData?.lessons) ? curriculumData.lessons : [];
+const expectedCurriculumTotal = Number.isInteger(curriculumData?.total) ? curriculumData.total : curriculumLessons.length;
 const completedSet = new Set(progressData?.completedChallengeIds || []);
-const expectedJsCompleted = (curriculumData?.lessons || []).filter(lesson => completedSet.has(lesson.id)).length;
-const expectedFccOverall = Number(progressData?.completedCount || completedSet.size);
+const expectedJsCompleted = curriculumLessons.filter(lesson => completedSet.has(lesson.id)).length;
+const expectedFccOverall = Number.isInteger(progressData?.completedCount) ? progressData.completedCount : completedSet.size;
+if(expectedCurriculumTotal !== curriculumLessons.length) {
+  throw new Error('FCC curriculum total does not match lesson count: '+expectedCurriculumTotal+' vs '+curriculumLessons.length);
+}
+if(expectedFccOverall < 0) throw new Error('FCC overall completion count is negative: '+expectedFccOverall);
 
 
 const routes = new Map([
@@ -52,10 +58,10 @@ try{
   need('160 roadmap units',await page.locator('input[data-roadmap-unit]').count()===160);
   need('320 mastery controls',await page.locator('input[data-mastery]').count()===320);
   need('FCC dashboard',await page.locator('.fcc-v5-dashboard').count()===1);
-  need('1341 FCC lessons',await page.locator('.fcc-v5-lesson').count()===1341);
+  need('FCC lesson count matches generated curriculum',await page.locator('.fcc-v5-lesson').count()===expectedCurriculumTotal);
   need('FCC overall count',await page.locator('#fccOverallCount').textContent()===String(expectedFccOverall));
   need('JS v9 completed count matches curriculum',await page.locator('#fccCompletedCount').textContent()===String(expectedJsCompleted));
-  const expectedPct = Math.round((expectedJsCompleted/1341)*100);
+  const expectedPct = expectedCurriculumTotal ? Math.round((expectedJsCompleted/expectedCurriculumTotal)*100) : 0;
   need('JS v9 progress matches curriculum',await page.locator('#fccProgressPct').textContent()===expectedPct+'%');
   need('mission populated',!['','Loading your next mission…'].includes((await page.locator('#missionTitle').textContent())||''));
   need('XP visible',(await page.locator('#motXp').textContent()).includes('XP'));
@@ -95,7 +101,7 @@ try{
 
     await page.reload({waitUntil:'domcontentloaded'});
     await page.waitForFunction(()=>document.querySelectorAll('.phase').length===14,{timeout:10000});
-    await page.waitForFunction(()=>document.querySelectorAll('.fcc-v5-lesson').length===1341,{timeout:10000});
+    await page.waitForFunction(expected=>document.querySelectorAll('.fcc-v5-lesson').length===expected,expectedCurriculumTotal,{timeout:10000});
     need('mastered persists after reload',await row().locator('.mastery-badge').textContent()==='MASTERED');
   }
 
@@ -107,7 +113,7 @@ try{
   console.log('14 phases');
   console.log('160 roadmap units');
   console.log('320 mastery controls');
-  console.log('1341 FCC lessons');
+  console.log(expectedCurriculumTotal+' FCC lessons');
   console.log('FCC overall: '+expectedFccOverall);
   console.log('JS v9 completed: '+expectedJsCompleted);
   console.log('Learned → Recall → Apply → MASTERED');
