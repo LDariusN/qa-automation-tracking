@@ -65,8 +65,9 @@ document.addEventListener('input',e=>{if(e.target?.id==='globalSearch')searchSit
 
 const qaStorage=(()=>{try{const k='__qa_storage_test__';window.localStorage.setItem(k,'1');window.localStorage.removeItem(k);return window.localStorage}catch(e){return{getItem:()=>null,setItem:()=>{},removeItem:()=>{}}}})();
 let state=JSON.parse(qaStorage.getItem('qaCourseRoadmapV4')||'{}');let mode='all';const app=document.getElementById('app');
-const FCC_V5_SYNC='qaRoadmapFCCSyncV5',FCC_V5_CURRICULUM='qaRoadmapFCCCurriculumV5';
+const FCC_V5_SYNC='qaRoadmapFCCSyncV5',FCC_V5_CURRICULUM='qaRoadmapFCCCurriculumV6';
 const fccV5=JSON.parse(qaStorage.getItem(FCC_V5_SYNC)||'null')||{username:'',auto:true,lastSync:null,lastError:null,completedIds:[]};
+qaStorage.removeItem('qaRoadmapFCCCurriculumV5');
 let fccCurriculumV5=JSON.parse(qaStorage.getItem(FCC_V5_CURRICULUM)||'null')||null;
 const FCC_V5_GRAPHQL='https://curriculum-db.freecodecamp.org/graphql';
 const FCC_V5_QUERY='query { modules(superblockDashedName: "javascript-v9", chapterDashedName: "javascript") { dashedName moduleType blockObjects { name dashedName blockLabel challengeOrder { id title } } } }';
@@ -85,7 +86,7 @@ async function fetchFCCUserV5(rawUsername){
   return {username:data.username,profileUI:{showTimeLine:true},completedChallenges:ids.map(id=>({id})),serverSyncedAt:data.syncedAt};
 }
 async function fetchFCCCurriculumV5(){const r=await fetch('./fcc-javascript-v9.json?cache='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error('Local FCC curriculum HTTP '+r.status);const data=await r.json();if(!Array.isArray(data.lessons)||!data.lessons.length)throw new Error('Local FCC curriculum data is empty');return data}
-async function loadStaticFCCCurriculumV5(){if(fccCurriculumV5?.lessons?.length){updateFCCPanelV5();return}try{fccCurriculumV5=await fetchFCCCurriculumV5();qaStorage.setItem(FCC_V5_CURRICULUM,JSON.stringify(fccCurriculumV5));updateFCCPanelV5()}catch(e){setFCCStatusV5('FCC curriculum could not be loaded: '+String(e?.message||e),'error')}}
+async function loadStaticFCCCurriculumV5(){try{const fresh=await fetchFCCCurriculumV5();const previous=JSON.stringify(fccCurriculumV5);fccCurriculumV5=fresh;qaStorage.setItem(FCC_V5_CURRICULUM,JSON.stringify(fccCurriculumV5));updateFCCPanelV5();if(previous!==JSON.stringify(fresh))document.querySelectorAll('details[data-fcc-module]').forEach(d=>d.classList.remove('open'))}catch(e){if(!fccCurriculumV5?.lessons?.length)setFCCStatusV5('FCC curriculum could not be loaded: '+String(e?.message||e),'error');else updateFCCPanelV5()}}
 function fccSlugV5(x){return x.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/['’]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')}
 function fccUrlV5(l){return'https://www.freecodecamp.org/learn/javascript-v9/'+l.block+'/'+fccSlugV5(l.title)}
 function setFCCStatusV5(m,t=''){const e=document.getElementById('fccStatus');if(e){e.className='fcc-status'+(t?' '+t:'');e.textContent=m}}
