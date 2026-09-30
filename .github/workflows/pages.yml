@@ -7,34 +7,60 @@ on:
   schedule:
     - cron: "*/10 * * * *"
 
-permissions:
-  contents: write
-  pages: write
-  id-token: write
-
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build freeCodeCamp curriculum data
+        run: node scripts/build-fcc-curriculum.mjs
+
+      - name: Sync freeCodeCamp progress
+        run: node scripts/update-fcc-progress.mjs
+
+      - name: Verify generated data
+        run: |
+          test -s fcc-javascript-v9.json
+          test -s fcc-progress.json
+          node - <<'NODE'
+          const curriculum = require('./fcc-javascript-v9.json');
+          const progress = require('./fcc-progress.json');
+          if (curriculum.total !== 1341) {
+            throw new Error('Unexpected FCC curriculum size: ' + curriculum.total);
+          }
+          if (progress.completedCount !== 207) {
+            throw new Error('Unexpected FCC progress count: ' + progress.completedCount);
+          }
+          console.log('Verified ' + curriculum.total + ' FCC tasks and ' + progress.completedCount + ' completed tasks.');
+          NODE
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
   deploy:
+    needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-      - name: Build freeCodeCamp curriculum data
-        run: node scripts/build-fcc-curriculum.mjs
-      - name: Sync freeCodeCamp progress
-        run: node scripts/update-fcc-progress.mjs
-      - name: Upload site
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: .
-      - name: Deploy
+      - name: Deploy Pages artifact
         id: deployment
         uses: actions/deploy-pages@v4
