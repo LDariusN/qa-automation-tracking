@@ -56,6 +56,7 @@
     need('sync success message',/^Synced successfully/.test(d.getElementById('fccStatus')?.textContent||''));
     need('sync count remains 207',(d.getElementById('fccCompletedCount')?.textContent||'')==='207');
   }
-  document.body.textContent=fail.length?'QA_FAIL\n'+fail.join('\n'):'QA_PASS\n14 phases\n1341 FCC lessons\n207 synced completions\nMotivation dashboard OK\nSync button OK';
+  document.title=fail.length?'QA_FAIL':'QA_PASS';
+document.body.innerHTML='<pre id="qa-result">'+(fail.length?'QA_FAIL\n'+fail.join('\n'):'QA_PASS\n14 phases\n1341 FCC lessons\n207 synced completions\nMotivation dashboard OK\nSync button OK\nMastery workflow OK\nPersistence OK')+'</pre>';
 })();
 </script>
