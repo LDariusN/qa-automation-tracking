@@ -1,0 +1,11 @@
+{
+  "name": "qa-automation-tracking",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "qa": "node tests/qa-playwright.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}
