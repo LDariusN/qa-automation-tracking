@@ -5,7 +5,7 @@ on:
     branches: [main]
   workflow_dispatch:
   schedule:
-    - cron: "0 * * * *"
+    # Refresh FCC progress every 15 minutes, offset from the top of the hour.\n    # GitHub schedules run in UTC.\n    - cron: "7,22,37,52 * * * *"
 
 concurrency:
   group: pages
