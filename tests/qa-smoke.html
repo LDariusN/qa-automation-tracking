@@ -21,15 +21,19 @@
   need('mastery controls present',d.querySelectorAll('input[data-mastery]').length===d.querySelectorAll('input[data-roadmap-unit]').length*2);
   need('mastery controls disabled before learning',!!firstUnit&&!firstUnit.checked&&firstUnit.closest('.phase-unit').querySelectorAll('input[data-mastery][disabled]').length===2);
   if(firstUnit){
+    const key=firstUnit.dataset.phaseUnit;
     firstUnit.click();
-    await wait(80);
-    const row=firstUnit.closest('.phase-unit');
+    await wait(100);
+    let row=d.querySelector('[data-phase-row="'+key+'"]');
     const controls=[...row.querySelectorAll('input[data-mastery]')];
-    need('mastery controls enable after learning',controls.every(x=>!x.disabled));
-    controls.forEach(x=>x.click());
-    await wait(80);
+    need('mastery controls enable after learning',controls.length===2&&controls.every(x=>!x.disabled));
+    controls[0].click();
+    await wait(60);
+    controls[1].click();
+    await wait(60);
+    row=d.querySelector('[data-phase-row="'+key+'"]');
     need('mastered state after recall and apply',row.classList.contains('mastered')&&row.querySelector('.mastery-badge')?.textContent==='MASTERED');
-    need('learning percent remains independent',!/100%/.test(d.getElementById('pct')?.textContent||'')||d.getElementById('done')?.textContent==='1');
+    need('learning progress remains one learned task',(d.getElementById('done')?.textContent||'')==='1');
   }
   need('14 phase trackers',d.querySelectorAll('.phase-tracker').length===14);
   need('fcc dashboard',!!d.querySelector('.fcc-v5-dashboard'));
