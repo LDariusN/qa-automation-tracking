@@ -41,6 +41,7 @@ async function worker() {
       lessons: (data.challengeOrder ?? []).map(challenge => ({
         id: challenge.id,
         title: challenge.title,
+        module: null,
         block: data.dashedName ?? block,
         kind: data.blockLabel ?? 'lesson'
       }))
@@ -55,7 +56,9 @@ await Promise.all(Array.from({ length: Math.min(12, jobs.length) }, worker));
 // the learner-facing lesson order.
 for (let i = 0; i < jobs.length; i++) {
   const { module } = jobs[i];
-  for (const lesson of results[i].lessons) module.lessons.push(lesson);
+  for (const lesson of results[i].lessons) {
+    module.lessons.push({ ...lesson, module: module.name });
+  }
 }
 
 const seen = new Set();
