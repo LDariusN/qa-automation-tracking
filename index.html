@@ -160,6 +160,7 @@ function update(){const b=[...document.querySelectorAll('input[data-roadmap-unit
 
 function runQaSmokeV3(){
   const fail=[];
+  const diagnostics=()=>({phases:document.querySelectorAll('.phase').length,trackers:document.querySelectorAll('.phase-tracker').length,summaries:document.querySelectorAll('.mastery-summary').length,roadmapUnits:document.querySelectorAll('input[data-roadmap-unit]').length,masteryInputs:document.querySelectorAll('input[data-mastery]').length,fccDashboard:!!document.querySelector('.fcc-v5-dashboard'),fccLessons:document.querySelectorAll('.fcc-v5-lesson').length,completed:document.getElementById('fccCompletedCount')?.textContent||'?',progress:document.getElementById('fccProgressPct')?.textContent||'?',mission:document.getElementById('missionTitle')?.textContent||'?',renderStarted:document.documentElement.getAttribute('data-roadmap-render-started'),renderComplete:document.documentElement.getAttribute('data-roadmap-rendered'),phaseCount:document.documentElement.getAttribute('data-roadmap-phase-count'),startupError:document.documentElement.getAttribute('data-roadmap-startup-error')||''});
   const need=(name,ok)=>{if(!ok)fail.push(name)};
   try{
     need('motivation panel',!!document.getElementById('motivationPanel'));
