@@ -1,0 +1,111 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import http from 'node:http';
+import { chromium } from 'playwright';
+
+const root = process.cwd();
+const html = await fs.readFile(path.join(root, 'index.html'));
+const curriculum = await fs.readFile(path.join(root, 'fcc-javascript-v9.json'));
+const progress = await fs.readFile(path.join(root, 'fcc-progress.json'));
+
+const routes = new Map([
+  ['/index.html', {type:'text/html; charset=utf-8', body:html}],
+  ['/fcc-javascript-v9.json', {type:'application/json; charset=utf-8', body:curriculum}],
+  ['/fcc-progress.json', {type:'application/json; charset=utf-8', body:progress}]
+]);
+
+const server = http.createServer((req,res)=>{
+  const pathname = new URL(req.url || '/', 'http://127.0.0.1').pathname;
+  const entry = routes.get(pathname);
+  if(!entry){res.writeHead(404);res.end('Not found');return;}
+  res.writeHead(200,{'content-type':entry.type,'cache-control':'no-store'});
+  res.end(entry.body);
+});
+await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+const port = server.address().port;
+
+const browser = await chromium.launch({headless:true});
+const context = await browser.newContext();
+const page = await context.newPage();
+
+const pageErrors=[];
+const consoleErrors=[];
+page.on('pageerror',e=>pageErrors.push(String(e?.stack||e)));
+page.on('console',msg=>{if(msg.type()==='error')consoleErrors.push(msg.text())});
+
+const failures=[];
+const need=(name,ok)=>{if(!ok)failures.push(name)};
+
+try{
+  await page.goto('http://127.0.0.1:'+port+'/index.html?qa=1',{waitUntil:'domcontentloaded'});
+  await page.waitForFunction(()=>document.querySelectorAll('.phase').length===14,{timeout:10000});
+  await page.waitForFunction(()=>document.querySelectorAll('.fcc-v5-lesson').length===1341,{timeout:10000});
+
+  need('14 phases',await page.locator('.phase').count()===14);
+  need('14 phase trackers',await page.locator('.phase-tracker').count()===14);
+  need('14 mastery summaries',await page.locator('.mastery-summary').count()===14);
+  need('160 roadmap units',await page.locator('input[data-roadmap-unit]').count()===160);
+  need('320 mastery controls',await page.locator('input[data-mastery]').count()===320);
+  need('FCC dashboard',await page.locator('.fcc-v5-dashboard').count()===1);
+  need('1341 FCC lessons',await page.locator('.fcc-v5-lesson').count()===1341);
+  need('207 completed FCC tasks',await page.locator('#fccCompletedCount').textContent()==='207');
+  need('FCC progress nonzero',await page.locator('#fccProgressPct').textContent()!=='0%');
+  need('mission populated',!['','Loading your next mission…'].includes((await page.locator('#missionTitle').textContent())||''));
+  need('XP visible',(await page.locator('#motXp').textContent()).includes('XP'));
+  need('14 career cards',await page.locator('.career-phase').count()===14);
+  need('no page errors',pageErrors.length===0);
+  need('no console errors',consoleErrors.length===0);
+
+  const first=page.locator('.phase-unit input[data-roadmap-unit]').first();
+  need('first learning checkbox exists',await first.count()===1);
+  if(await first.count()){
+    const key=await first.getAttribute('data-phase-unit');
+    const row=()=>page.locator('[data-phase-row="'+key+'"]');
+
+    need('recall disabled before learning',await row().locator('input[data-mastery="recall"][disabled]').count()===1);
+    need('apply disabled before learning',await row().locator('input[data-mastery="apply"][disabled]').count()===1);
+
+    await first.check();
+    await page.waitForTimeout(100);
+
+    need('recall enabled after learning',await row().locator('input[data-mastery="recall"]:not([disabled])').count()===1);
+    need('apply enabled after learning',await row().locator('input[data-mastery="apply"]:not([disabled])').count()===1);
+
+    await row().locator('input[data-mastery="recall"]').check();
+    await row().locator('input[data-mastery="apply"]').check();
+    await page.waitForTimeout(100);
+
+    need('mastered state',await row().evaluate(el=>el.classList.contains('mastered')));
+    need('mastered badge',await row().locator('.mastery-badge').textContent()==='MASTERED');
+    need('global learned count is one',await page.locator('#done').textContent()==='1');
+
+    const stored=await page.evaluate(()=>({
+      phase:JSON.parse(localStorage.getItem('qaPhaseUnitsV1')||'{}'),
+      mastery:JSON.parse(localStorage.getItem('qaMasteryV1')||'{}')
+    }));
+    need('learning persisted',stored.phase[key]===true);
+    need('mastery persisted',stored.mastery[key]?.recall===true&&stored.mastery[key]?.apply===true);
+
+    await page.reload({waitUntil:'domcontentloaded'});
+    await page.waitForFunction(()=>document.querySelectorAll('.phase').length===14,{timeout:10000});
+    await page.waitForFunction(()=>document.querySelectorAll('.fcc-v5-lesson').length===1341,{timeout:10000});
+    need('mastered persists after reload',await row().locator('.mastery-badge').textContent()==='MASTERED');
+  }
+
+  if(failures.length){
+    throw new Error('QA_FAIL\n'+failures.join('\n')+'\nPageErrors: '+JSON.stringify(pageErrors)+'\nConsoleErrors: '+JSON.stringify(consoleErrors));
+  }
+
+  console.log('QA_PASS');
+  console.log('14 phases');
+  console.log('160 roadmap units');
+  console.log('320 mastery controls');
+  console.log('1341 FCC lessons');
+  console.log('207 synced FCC completions');
+  console.log('Learned → Recall → Apply → MASTERED');
+  console.log('Persistence after reload OK');
+} finally{
+  await context.close();
+  await browser.close();
+  await new Promise(resolve=>server.close(resolve));
+}
