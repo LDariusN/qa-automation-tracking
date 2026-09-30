@@ -62,6 +62,7 @@ try{
   const expectedPct=expectedCurriculumTotal?Math.round(expectedJsCompleted/expectedCurriculumTotal*100):0;
   need('JS v9 progress matches curriculum',await page.locator('#fccProgressPct').textContent()===expectedPct+'%');
   need('mission populated',!['','Loading your next mission…'].includes((await page.locator('#missionTitle').textContent())||''));
+  need('FCC mission metadata has module name',!(await page.locator('#missionMeta').textContent()).includes('undefined'));
   need('XP visible',(await page.locator('#motXp').textContent()).includes('XP'));
   need('14 career cards',await page.locator('.career-phase').count()===14);
   need('skip link',await page.locator('.skip-link').count()===1);
