@@ -4,12 +4,14 @@ import { JSDOM, VirtualConsole } from 'jsdom';
 
 const root = process.cwd();
 const html = await fs.readFile(path.join(root, 'index.html'), 'utf8');
-const curriculum = await fs.readFile(path.join(root, 'fcc-javascript-v9.json'), 'utf8');
-const progress = await fs.readFile(path.join(root, 'fcc-progress.json'), 'utf8');
+const curriculum = JSON.parse(await fs.readFile(path.join(root, 'fcc-javascript-v9.json'), 'utf8'));
+const progress = JSON.parse(await fs.readFile(path.join(root, 'fcc-progress.json'), 'utf8'));
 
-const errors = [];
+const jsdomErrors = [];
+const consoleMessages = [];
 const virtualConsole = new VirtualConsole();
-virtualConsole.on('jsdomError', err => errors.push(String(err?.stack || err)));
+virtualConsole.on('jsdomError', err => jsdomErrors.push(String(err?.stack || err)));
+virtualConsole.on('error', msg => consoleMessages.push(String(msg)));
 
 const dom = new JSDOM(html, {
   url: 'http://roadmap.test/index.html?qa-jsdom=1',
@@ -18,45 +20,27 @@ const dom = new JSDOM(html, {
   virtualConsole,
   beforeParse(window) {
     window.open = () => null;
-    window.alert = () => {};
     window.confirm = () => true;
+    window.alert = () => {};
     window.fetch = async input => {
       const url = String(input);
-      const file = url.includes('fcc-javascript-v9.json')
-        ? curriculum
-        : url.includes('fcc-progress.json')
-          ? progress
-          : null;
-      if (file === null) {
-        return {
-          ok: false,
-          status: 404,
-          json: async () => ({})
-        };
+      if (url.includes('fcc-javascript-v9.json')) {
+        return { ok: true, status: 200, json: async () => curriculum, text: async () => JSON.stringify(curriculum) };
       }
-      return {
-        ok: true,
-        status: 200,
-        json: async () => JSON.parse(file),
-        text: async () => file
-      };
+      if (url.includes('fcc-progress.json')) {
+        return { ok: true, status: 200, json: async () => progress, text: async () => JSON.stringify(progress) };
+      }
+      return { ok: false, status: 404, json: async () => ({}) };
     };
   }
 });
 
-const { window } = dom;
-const { document } = window;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-
 await sleep(1200);
 
+const { window } = dom;
+const { document } = window;
 const failures = [];
-const debug = {
-  beforeDisabled: undefined,
-  afterEnabled: undefined,
-  mastered: undefined,
-  done: undefined
-};
 const need = (name, ok) => { if (!ok) failures.push(name); };
 
 need('14 phases', document.querySelectorAll('.phase').length === 14);
@@ -67,44 +51,46 @@ need('320 mastery controls', document.querySelectorAll('input[data-mastery]').le
 need('FCC dashboard', !!document.querySelector('.fcc-v5-dashboard'));
 need('1341 FCC lessons', document.querySelectorAll('.fcc-v5-lesson').length === 1341);
 need('207 completed FCC tasks', document.getElementById('fccCompletedCount')?.textContent === '207');
-need('FCC progress is nonzero', document.getElementById('fccProgressPct')?.textContent !== '0%');
-need('today mission populated', (document.getElementById('missionTitle')?.textContent || '') !== 'Loading your next mission…');
+need('FCC progress nonzero', document.getElementById('fccProgressPct')?.textContent !== '0%');
+need('today mission populated', !['', 'Loading your next mission…'].includes(document.getElementById('missionTitle')?.textContent || ''));
 need('14 career cards', document.querySelectorAll('.career-phase').length === 14);
-need('no jsdom errors', errors.length === 0);
+need('no jsdom errors', jsdomErrors.length === 0);
+need('no console errors', consoleMessages.length === 0);
 
-const first = document.querySelector('.phase-unit input[data-roadmap-unit]');
-if (!first) {
-  failures.push('first roadmap unit exists');
-} else {
+const unitInputs = document.querySelectorAll('.phase-unit input[type="checkbox"][data-roadmap-unit]');
+const first = unitInputs.item(0);
+need('first roadmap unit exists', !!first);
+
+if (first) {
   const key = first.dataset.phaseUnit;
-  const getRow = () => document.querySelector('[data-phase-row="'+key+'"]');
+  const getRow = () => document.querySelector('[data-phase-row="' + key + '"]');
+
   let row = getRow();
-  debug.beforeDisabled=row?.querySelectorAll('input[data-mastery][disabled]').length||0;
-  need('mastery disabled before learning', debug.beforeDisabled===2);
+  need('mastery disabled before learning', row?.querySelectorAll('input[data-mastery][disabled]').length === 2);
 
   first.click();
-  await sleep(20);
+  await sleep(30);
+
   row = getRow();
   const controls = row ? [...row.querySelectorAll('input[data-mastery]')] : [];
-  debug.afterEnabled=controls.filter(x=>!x.disabled).length;
-  need('mastery enables after learning', controls.length===2&&debug.afterEnabled===2);
+  need('mastery controls enable after learning', controls.length === 2 && controls.every(control => !control.disabled));
 
   controls[0]?.click();
   controls[1]?.click();
-  await sleep(20);
+  await sleep(30);
+
   row = getRow();
-  debug.mastered=!!row?.classList.contains('mastered');
-  need('row becomes MASTERED', debug.mastered);
-  need('MASTERED badge shown', row?.querySelector('.mastery-badge')?.textContent === 'MASTERED');
-  debug.done=document.getElementById('done')?.textContent||'?';
-  need('learned count remains one', debug.done==='1');
+  need('MASTERED state', row?.classList.contains('mastered'));
+  need('MASTERED badge', row?.querySelector('.mastery-badge')?.textContent === 'MASTERED');
+  need('global learned count stays at one', document.getElementById('done')?.textContent === '1');
 
   const stored = JSON.parse(window.localStorage.getItem('qaMasteryV1') || '{}');
-  need('mastery persisted', stored[key]?.recall === true && stored[key]?.apply === true);
+  need('mastery persists', stored[key]?.recall === true && stored[key]?.apply === true);
 }
 
 if (failures.length) {
-  console.error('QA_FAIL\n' + failures.join('\n'));
+  console.error('QA_FAIL');
+  for (const failure of failures) console.error('- ' + failure);
   process.exit(1);
 }
 
@@ -114,5 +100,5 @@ console.log('160 roadmap units');
 console.log('320 mastery controls');
 console.log('1341 FCC lessons');
 console.log('207 synced FCC completions');
-console.log('Mastery: Learned → Recall → Apply → MASTERED');
-console.log('Persistence: OK');
+console.log('Learned → Recall → Apply → MASTERED');
+console.log('Mastery persistence OK');
