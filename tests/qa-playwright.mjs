@@ -400,6 +400,7 @@ try{
   await firstDetectionPage.addInitScript(()=>localStorage.setItem('qaRoadmapFCCSyncV5',JSON.stringify({username:'',auto:true,lastSync:null,lastAttemptAt:null,lastSyncSource:null,lastError:null,completedIds:[],observedIds:[],observedAt:null})));
   await firstDetectionPage.route('**/fcc-progress.json',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({...progressData,completedChallengeIds:[...completedSet],completedCount:completedSet.size})}));
   await firstDetectionPage.goto(url,{waitUntil:'domcontentloaded'});
+  await firstDetectionPage.locator('[data-ux-nav="resources"]').click();
   await firstDetectionPage.locator('#fccUsername').fill(String(progressData.username));
   await firstDetectionPage.waitForFunction(expected=>document.querySelector('#fccCompletedCount')?.textContent===String(expected),expectedJsCompleted,{timeout:10000});
   need('first detected FCC progress starts session',await firstDetectionPage.locator('#motStreak').textContent()==='1');
