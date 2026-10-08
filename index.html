@@ -125,8 +125,8 @@ function renderResourceSyncPanelV1(){
 function observeResourceProgressV1(adapterId,ids,{details='',missionCompleted=false,source='snapshot',observedAt=null,repositoryCount=0,baselineOnly=false}={}){
  const adapter=resourceAdapterV1(adapterId);if(!adapter)throw new Error('Unknown resource adapter: '+adapterId);
  const result=QAResourceSync.observe(resourceSyncState,adapterId,{ids,source,observedAt});
+ if(baselineOnly&&result.firstProgress){result.detected=false;result.state.observations[adapterId].lastDetectedAt=null;}
  if(repositoryCount)result.state.observations[adapterId].repositoryCount=repositoryCount;
- result.detected=baselineOnly&&result.firstProgress?false:result.detected;
  resourceSyncState=result.state;saveResourceSyncV1();renderResourceSyncPanelV1();
  if(result.detected){const d=typeof details==='function'?details(result):details;const done=typeof missionCompleted==='function'?missionCompleted(result):!!missionCompleted;motRecordActivity(adapter.label,d,done)}
  return result;
