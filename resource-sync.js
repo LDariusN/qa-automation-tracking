@@ -40,12 +40,13 @@
     const parts=s.split('/');
     return parts.length>=2&&parts[0]&&parts[1]?parts[0]+'/'+parts[1]:null;
   }
-  async function syncGitHubActions(repo){
+  async function syncGitHubActions(repo,options={}){
     const name=parseRepo(repo);if(!name)throw new Error('Invalid GitHub repository');
-    const data=await githubJson('https://api.github.com/repos/'+name+'/actions/runs?per_page=30&exclude_pull_requests=true');
+    const workflowName=String(options?.workflowName||'Roadmap QA').trim();
+    const data=await githubJson('https://api.github.com/repos/'+name+'/actions/runs?per_page=100&exclude_pull_requests=true');
     const runs=Array.isArray(data?.workflow_runs)?data.workflow_runs:[];
-    const ids=runs.filter(x=>x?.conclusion==='success').map(x=>'run:'+x.id);
-    return {repo:name,ids,latest:runs[0]||null,successfulRuns:runs.filter(x=>x?.conclusion==='success').length};
+    const qualifying=runs.filter(x=>x?.conclusion==='success'&&(!workflowName||String(x?.name||'')===workflowName)&&x?.event!=='schedule');
+    return {repo:name,workflowName,ids:qualifying.map(x=>'run:'+x.id),latest:qualifying[0]||null,successfulRuns:qualifying.length};
   }
   async function syncGitHubSkills(owner){
     const login=String(owner||'').trim();
