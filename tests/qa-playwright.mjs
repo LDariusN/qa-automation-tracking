@@ -285,7 +285,7 @@ try{
     motState.sessions=['2026-10-08'];
     motState.xp=55;
     motState.missionClaimed={'2026-10-08':true};
-    recordResourceActivityV1('roadmap-phase-1','Next calendar day test',false);
+    recordResourceActivityV1('fcc-typescript-youtube','Next calendar day test',false);
     const result={sessions:[...motState.sessions],xp:motState.xp,streak:motStreak()};
     window.Date=RealDate;
     return result;
