@@ -151,7 +151,8 @@ function renderFCCDashboardV5(){const host=document.getElementById('fccCurriculu
 async function syncFCC(background=false){
  const u=document.getElementById('fccUsername')?.value.trim();
  if(!u)return;
- const previousIds=[...(fccV5.observedIds||fccV5.completedIds||[])],previousMission=motNextFCC(),b=document.getElementById('fccSyncBtn');
+ const hadObservation=Array.isArray(fccV5.observedIds)&&fccV5.observedIds.length>0;
+ const previousIds=[...(fccV5.observedIds||[])],previousMission=motNextFCC(),b=document.getElementById('fccSyncBtn');
  fccV5.lastAttemptAt=new Date().toISOString();
  if(!background){if(b){b.disabled=true;b.textContent='Checking…'}setFCCStatusV5('Checking for new progress…')}
  try{
@@ -163,17 +164,16 @@ async function syncFCC(background=false){
   fccV5.lastSyncSource='snapshot';
   fccV5.lastError=null;
   const added=fccV5.completedIds.filter(id=>!previousIds.includes(id));
-  const hadObservation=Array.isArray(fccV5.observedIds)&&fccV5.observedIds.length>0;
-  const observedChanged=hadObservation&&added.length>0;
+  const progressDetected=(!hadObservation&&fccV5.completedIds.length>0)||added.length>0;
   fccV5.observedIds=[...fccV5.completedIds];
   fccV5.observedAt=new Date().toISOString();
   saveFCCV5();
   qaStorage.setItem(FCC_V5_CURRICULUM,JSON.stringify(fccCurriculumV5));
   updateFCCPanelV5();
   const done=fccCurriculumV5.lessons.filter(l=>fccV5.completedIds.includes(l.id)).length;
-  if(observedChanged){
-    const missionCompleted=!!(previousMission?.type==='fcc'&&added.includes(previousMission.id));
-    motRecordActivity('freeCodeCamp',added.length+' new lesson'+(added.length===1?'':'s')+' detected',missionCompleted);
+  if(progressDetected){
+    const missionCompleted=hadObservation&&!!(previousMission?.type==='fcc'&&added.includes(previousMission.id));
+    motRecordActivity('freeCodeCamp',hadObservation?added.length+' new lesson'+(added.length===1?'':'s')+' detected':'Initial progress detected',missionCompleted);
     setFCCStatusV5('New freeCodeCamp progress detected — '+done+' of '+fccCurriculumV5.lessons.length+' JavaScript v9 tasks completed.','success');
   }else if(!background){
     const stamp=user.serverSyncedAt?new Date(user.serverSyncedAt).toLocaleString():'unknown';
@@ -204,9 +204,9 @@ async function loadStaticFCCProgressV5(){
       fccV5.lastSyncSource='snapshot';
       saveFCCV5();
       updateFCCPanelV5();
-      if(added.length){
-        const missionCompleted=!!(previousMission?.type==='fcc'&&added.includes(previousMission.id));
-        motRecordActivity('freeCodeCamp',added.length+' new lesson'+(added.length===1?'':'s')+' detected',missionCompleted);
+      if((!hadObservation&&incoming.length>0)||added.length){
+        const missionCompleted=hadObservation&&!!(previousMission?.type==='fcc'&&added.includes(previousMission.id));
+        motRecordActivity('freeCodeCamp',hadObservation?added.length+' new lesson'+(added.length===1?'':'s')+' detected':'Initial progress detected',missionCompleted);
       }
     }
   }catch(_e){}
