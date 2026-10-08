@@ -303,7 +303,8 @@ function runQaSmokeV3(){
     need('320 mastery controls',document.querySelectorAll('input[data-mastery]').length===320);
     need('FCC dashboard',!!document.querySelector('.fcc-v5-dashboard'));
     need('FCC curriculum loaded',!!fccCurriculumV5?.lessons?.length);
-    need('207 completed FCC tasks',(document.getElementById('fccCompletedCount')?.textContent||'')==='207');
+    const smokeExpectedJsCompleted=fccCurriculumV5.lessons.filter(lesson=>(fccV5.completedIds||[]).includes(lesson.id)).length;
+    need('FCC completed count matches generated progress',(document.getElementById('fccCompletedCount')?.textContent||'')===String(smokeExpectedJsCompleted));
     need('FCC progress nonzero',(document.getElementById('fccProgressPct')?.textContent||'')!=='0%');
     need('today mission populated',(document.getElementById('missionTitle')?.textContent||'').length>0&&document.getElementById('missionTitle').textContent!=='Loading your next mission…');
     need('XP visible',/XP/.test(document.getElementById('motXp')?.textContent||''));
