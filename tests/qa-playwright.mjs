@@ -296,6 +296,17 @@ try{
   // External adapter simulations use mocked platform responses.
   const externalContext=await browser.newContext({timezoneId:'Europe/Bucharest'});
   const externalPage=await externalContext.newPage();
+  await externalPage.addInitScript(()=>{
+    const realFetch=window.fetch.bind(window);
+    window.fetch=async (input,init)=>{
+      const u=String(typeof input==='string'?input:input?.url||'');
+      if(u.includes('api.github.com/repos/')&&u.includes('/actions/runs')) return {ok:true,json:async()=>({workflow_runs:[]})};
+      if(u.includes('api.github.com/repos/example/skills-introduction-to-github')) return {ok:true,json:async()=>({full_name:'example/skills-introduction-to-github',pushed_at:'2026-10-08T10:00:00Z',updated_at:'2026-10-08T10:00:00Z',html_url:'https://github.com/example/skills-introduction-to-github'})};
+      if(u.includes('api.postman.com/workspaces')) return {ok:true,json:async()=>({workspaces:[{id:'w1',name:'QA',updatedAt:'2026-10-08T10:00:00Z'}]})};
+      if(u.includes('api.postman.com/collections')) return {ok:true,json:async()=>({collections:[{id:'c1',name:'QA API',updatedAt:'2026-10-08T10:00:00Z'}]})};
+      return realFetch(input,init);
+    };
+  });
   await externalPage.addInitScript(()=>localStorage.setItem('qaMotivationV2',JSON.stringify({xp:0,sessions:[],manualCompletedAt:{},reviewHistory:{},missionClaimed:{},activityLog:[]})));
   await externalPage.goto(url,{waitUntil:'domcontentloaded'});
   const externalResults=await externalPage.evaluate(async()=>{
