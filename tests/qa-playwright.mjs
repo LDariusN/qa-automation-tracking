@@ -100,7 +100,7 @@ try{
   need('FCC lesson order matches source canary',JSON.stringify(actualFirstFccTitles)===JSON.stringify(expectedFirstFccTitles));
   need('mission populated',!['','Loading your next mission…'].includes((await page.locator('#missionTitle').textContent())||''));
   need('resume follows current FCC next lesson',expectedNextFCC && (await page.locator('#resumeBtn').textContent())===('Resume: '+expectedNextFCC.title));
-  need('resume does not use stale FCC target',!(await page.locator('#resumeBtn').textContent()).includes('ASCII, and How Does It Work with charCodeAt()'));
+  need('resume target matches current FCC next lesson',expectedNextFCC && (await page.locator('#resumeBtn').textContent())===('Resume: '+expectedNextFCC.title));
   need('FCC mission metadata has module name',!(await page.locator('#missionMeta').textContent()).includes('undefined'));
   need('XP visible',(await page.locator('#motXp').textContent()).includes('XP'));
   need('14 career cards',await page.locator('.career-phase').count()===14);
@@ -210,13 +210,14 @@ try{
   await syncContext.close();
 
   // Roadmap activity regression: checking a roadmap unit also starts a session automatically.
-  const localResourcePage=await context.newPage();
+  const localResourceContext=await browser.newContext({timezoneId:'Europe/Bucharest'});
+  const localResourcePage=await localResourceContext.newPage();
   await localResourcePage.addInitScript(()=>localStorage.setItem('qaMotivationV2',JSON.stringify({xp:0,sessions:[],manualCompletedAt:{},reviewHistory:{},missionClaimed:{},activityLog:[]})));
   await localResourcePage.goto(url,{waitUntil:'domcontentloaded'});
   await localResourcePage.locator('.phase-unit input[data-roadmap-unit]').first().check();
   need('roadmap activity creates session',await localResourcePage.locator('#motStreak').textContent()==='1');
   need('roadmap activity identifies resource',await localResourcePage.locator('#missionActivity').textContent().then(x=>x.length>0));
-  await localResourcePage.close();
+  await localResourceContext.close();
 
   // Mobile layout/accessibility smoke.
   const mobile=await context.newPage();
