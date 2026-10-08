@@ -121,10 +121,11 @@ function renderResourceSyncPanelV1(){
   return '<div class="resource-sync-item" data-resource-adapter="'+esc(adapter.id)+'" data-sync-mode="'+mode+'"><div class="resource-sync-item-head"><div><div class="resource-sync-item-title">'+esc(adapter.label)+'</div><div class="resource-sync-item-meta">Phase '+(adapter.phase+1)+' · '+esc(adapter.source)+' · '+esc(meta)+'</div></div><span class="resource-sync-tag '+mode+'">'+tag+'</span></div></div>';
  }).join('');
 }
-function observeResourceProgressV1(adapterId,ids,{details='',missionCompleted=false,source='snapshot',observedAt=null,repositoryCount=0}={}){
+function observeResourceProgressV1(adapterId,ids,{details='',missionCompleted=false,source='snapshot',observedAt=null,repositoryCount=0,baselineOnly=false}={}){
  const adapter=resourceAdapterV1(adapterId);if(!adapter)throw new Error('Unknown resource adapter: '+adapterId);
  const result=QAResourceSync.observe(resourceSyncState,adapterId,{ids,source,observedAt});
  if(repositoryCount)result.state.observations[adapterId].repositoryCount=repositoryCount;
+ result.detected=baselineOnly&&result.firstProgress?false:result.detected;
  resourceSyncState=result.state;saveResourceSyncV1();renderResourceSyncPanelV1();
  if(result.detected){const d=typeof details==='function'?details(result):details;const done=typeof missionCompleted==='function'?missionCompleted(result):!!missionCompleted;motRecordActivity(adapter.label,d,done)}
  return result;
@@ -138,19 +139,19 @@ function observeResourceWatchProgressV1(adapterId,value,total,opts={}){
 }
 function recordResourceActivityV1(adapterId,details='',missionCompleted=false){const adapter=resourceAdapterV1(adapterId);motRecordActivity(adapter?.label||adapterId,details,missionCompleted)}
 
-async function syncGitHubActionsV1(){try{const data=await QAResourceSync.syncGitHubActions(GITHUB_ACTIONS_REPO);return {...data,result:observeResourceProgressV1('github-actions',data.ids,{source:'github-actions',observedAt:data.latest?.updated_at||new Date().toISOString(),details:r2=>r2.firstProgress?'Successful workflow baseline':r2.addedCount+' new successful workflow'+(r2.addedCount===1?'':'s')+' detected'})}}catch(e){console.warn('GitHub Actions sync:',e?.message||e);return null}}
+async function syncGitHubActionsV1(){try{const data=await QAResourceSync.syncGitHubActions(GITHUB_ACTIONS_REPO);return {...data,result:observeResourceProgressV1('github-actions',data.ids,{source:'github-actions',observedAt:data.latest?.updated_at||new Date().toISOString(),baselineOnly:true,details:r2=>r2.firstProgress?'Successful workflow baseline':r2.addedCount+' new successful workflow'+(r2.addedCount===1?'':'s')+' detected'})}}catch(e){console.warn('GitHub Actions sync:',e?.message||e);return null}}
 async function syncGitHubSkillsV1(){
  try{
   const cfg=saveResourceConfigV1(),explicit=QAResourceSync.parseRepo(cfg.githubSkillsRepo);
   const data=explicit?await (async()=>{const repoData=await QAResourceSync.githubJson('https://api.github.com/repos/'+explicit);return{owner:cfg.githubSkillsOwner,repositories:[{name:repoData.full_name,pushedAt:repoData.pushed_at||null,updatedAt:repoData.updated_at||null,url:repoData.html_url}],ids:['repo:'+repoData.full_name+':'+String(repoData.pushed_at||repoData.updated_at||'')]}})():await QAResourceSync.syncGitHubSkills(cfg.githubSkillsOwner);
-  const result=observeResourceProgressV1('github-skills',data.ids,{source:'github-skills',observedAt:data.repositories?.[0]?.pushedAt||new Date().toISOString(),details:r2=>r2.firstProgress?'Skills activity baseline':r2.addedCount+' new Skills repository change'+(r2.addedCount===1?'':'s')+' detected',repositoryCount:data.repositories?.length||0});
+  const result=observeResourceProgressV1('github-skills',data.ids,{source:'github-skills',observedAt:data.repositories?.[0]?.pushedAt||new Date().toISOString(),baselineOnly:true,details:r2=>r2.firstProgress?'Skills activity baseline':r2.addedCount+' new Skills repository change'+(r2.addedCount===1?'':'s')+' detected',repositoryCount:data.repositories?.length||0});
   if(resourceSyncState.observations['github-skills'])resourceSyncState.observations['github-skills'].repositoryCount=data.repositories?.length||0;saveResourceSyncV1();renderResourceSyncPanelV1();return {...data,result};
  }catch(e){console.warn('GitHub Skills sync:',e?.message||e);return null}
 }
 async function connectPostmanV1(){
  const cfg=saveResourceConfigV1(),input=document.getElementById('postmanApiKey'),key=String(input?.value||sessionStorage.getItem('qaPostmanApiKeyV1')||'').trim();if(!key){renderResourceSyncPanelV1();return null}
  sessionStorage.setItem('qaPostmanApiKeyV1',key);if(cfg.postmanRemember)qaStorage.setItem('qaPostmanApiKeyV1',key);else qaStorage.removeItem('qaPostmanApiKeyV1');
- try{const data=await QAResourceSync.syncPostman(key,cfg.postmanWorkspace);const result=observeResourceProgressV1('postman',data.ids,{source:'postman-api',observedAt:data.collections?.[0]?.updatedAt||data.workspaces?.[0]?.updatedAt||new Date().toISOString(),details:r2=>r2.firstProgress?'Postman activity baseline':r2.addedCount+' new Postman workspace/collection change'+(r2.addedCount===1?'':'s')+' detected'});setFCCStatusV5('Postman adapter connected — '+data.collections.length+' collections observed.','success');return {...data,result}}catch(e){setFCCStatusV5('Postman adapter: '+String(e?.message||e),'warn');return null}
+ try{const data=await QAResourceSync.syncPostman(key,cfg.postmanWorkspace);const result=observeResourceProgressV1('postman',data.ids,{source:'postman-api',observedAt:data.collections?.[0]?.updatedAt||data.workspaces?.[0]?.updatedAt||new Date().toISOString(),baselineOnly:true,details:r2=>r2.firstProgress?'Postman activity baseline':r2.addedCount+' new Postman workspace/collection change'+(r2.addedCount===1?'':'s')+' detected'});setFCCStatusV5('Postman adapter connected — '+data.collections.length+' collections observed.','success');return {...data,result}}catch(e){setFCCStatusV5('Postman adapter: '+String(e?.message||e),'warn');return null}
 }
 function renderYouTubeTrackerV1(){return '<div class="youtube-tracker"><h3>Tracked TypeScript course player</h3><div class="meta">Watch the freeCodeCamp TypeScript course here to let the roadmap observe real playback progress. Progress is stored locally and becomes learning activity at meaningful milestones.</div><div class="youtube-tracker-actions"><button type="button" id="youtubeLoadBtn" onclick="loadYouTubeTrackerV1()">Load course player</button></div><div id="youtubePlayerStatus" class="fcc-status" role="status" aria-live="polite">Player not loaded.</div><div class="youtube-player-frame" id="youtubePlayerFrame" style="display:none"><div id="youtubePlayer"></div></div><div class="youtube-progress"><div id="youtubeProgressFill"></div></div><div class="fcc-stats"><span>Watched: <b id="youtubeProgressPct">0%</b></span><span>Duration: <b id="youtubeDuration">—</b></span></div></div>'}
 let youtubePlayerV1=null,youtubeTimerV1=null;
