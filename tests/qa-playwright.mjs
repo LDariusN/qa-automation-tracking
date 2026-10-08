@@ -217,8 +217,9 @@ try{
     mastery:JSON.parse(localStorage.getItem('qaMasteryV1')||'{}')
   }));
   need('learning persisted',stored.phase[key]===true);
-  need('roadmap completion date persisted',typeof JSON.parse(localStorage.getItem('qaMotivationV2')||'{}').manualCompletedAt?.[key]==='number');
-  need('goal start date persisted',typeof JSON.parse(localStorage.getItem('qaMotivationV2')||'{}').goalStartDate==='string');
+  const motivationStored=await page.evaluate(()=>JSON.parse(localStorage.getItem('qaMotivationV2')||'{}'));
+  need('roadmap completion date persisted',typeof motivationStored.manualCompletedAt?.[key]==='number');
+  need('goal start date persisted',typeof motivationStored.goalStartDate==='string');
   need('mastery persisted',stored.mastery[key]?.recall===true&&stored.mastery[key]?.apply===true);
   need('recall evidence persisted',stored.mastery[key]?.recallEvidence==='I can explain this concept clearly.');
   need('apply evidence persisted',stored.mastery[key]?.applyEvidence==='I used it in a coding exercise.');
