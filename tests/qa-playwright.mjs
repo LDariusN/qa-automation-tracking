@@ -231,6 +231,11 @@ try{
   await firstDetectionPage.waitForFunction(expected=>document.querySelector('#fccCompletedCount')?.textContent===String(expected),expectedJsCompleted,{timeout:10000});
   need('first detected FCC progress starts session',await firstDetectionPage.locator('#motStreak').textContent()==='1');
   need('first detected FCC progress awards session XP',await firstDetectionPage.locator('#motXp').textContent()==='15 XP');
+  await firstDetectionPage.evaluate(()=>syncFCC());
+  await firstDetectionPage.waitForFunction(expected=>document.querySelector('#fccCompletedCount')?.textContent===String(expected),expectedJsCompleted,{timeout:10000});
+  need('repeat FCC snapshot keeps one daily session',await firstDetectionPage.locator('#motStreak').textContent()==='1');
+  need('repeat FCC snapshot adds no session XP',await firstDetectionPage.locator('#motXp').textContent()==='15 XP');
+  need('repeat FCC snapshot keeps one activity event',await firstDetectionPage.evaluate(()=>JSON.parse(localStorage.getItem('qaMotivationV2')).activityLog.length===1));
   await firstDetectionContext.close();
 
   // Mobile layout/accessibility smoke.
