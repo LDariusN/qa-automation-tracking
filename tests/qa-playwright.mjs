@@ -181,30 +181,27 @@ try{
 
   await page.screenshot({path:path.join(root,'artifacts','desktop.png'),fullPage:true});
 
-  // Live FCC sync regression. The API response is mocked so this test is deterministic.
+  // Server snapshot refresh regression. The first response is the baseline;
+  // the second simulates a newer GitHub Actions-generated snapshot.
   const syncContext=await browser.newContext({timezoneId:'Europe/Bucharest'});
   const syncPage=await syncContext.newPage();
-  await syncPage.addInitScript(({username,ids})=>{
-    localStorage.setItem('qaRoadmapFCCSyncV5',JSON.stringify({username,auto:false,lastSync:null,lastAttemptAt:null,lastSyncSource:null,lastError:null,completedIds:[]}));
-    const realFetch=window.fetch.bind(window);
-    window.fetch=(input,init)=>{
-      const requestUrl=typeof input==='string'?input:input?.url||'';
-      if(requestUrl.startsWith('https://api.freecodecamp.org/users/get-public-profile?username=')){
-        return Promise.resolve(new Response(JSON.stringify({entities:{user:{[username]:{
-          username,
-          profileUI:{showTimeLine:true},
-          completedChallenges:ids.map(id=>({id}))
-        }}}}),{status:200,headers:{'content-type':'application/json'}}));
-      }
-      return realFetch(input,init);
-    };
-  },{username:String(progressData.username),ids:[...completedSet,expectedNextFCC.id]});
+  let progressFetches=0;
+  await syncPage.route('**/fcc-progress.json**',async route=>{
+    progressFetches++;
+    const nextData={...progressData};
+    if(progressFetches>=2){
+      nextData.completedChallengeIds=[...completedSet,expectedNextFCC.id];
+      nextData.completedCount=nextData.completedChallengeIds.length;
+      nextData.syncedAt=new Date(Date.now()+1000).toISOString();
+    }
+    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(nextData)});
+  });
   await syncPage.goto(url,{waitUntil:'domcontentloaded'});
   await syncPage.locator('#fccUsername').fill(String(progressData.username));
   await syncPage.locator('#fccSyncBtn').click();
   await syncPage.waitForFunction(expected=>document.querySelector('#fccCompletedCount')?.textContent===String(expected),expectedJsCompleted+1,{timeout:10000});
-  need('live FCC sync source',await syncPage.locator('#fccSyncSource').textContent()==='Live FCC');
-  need('live FCC sync status',(await syncPage.locator('#fccStatus').textContent()).startsWith('Live sync successful'));
+  need('server snapshot source',await syncPage.locator('#fccSyncSource').textContent()==='Server snapshot');
+  need('server snapshot refresh status',(await syncPage.locator('#fccStatus').textContent()).startsWith('Progress refreshed from the server snapshot'));
   await syncContext.close();
 
   // Mobile layout/accessibility smoke.
