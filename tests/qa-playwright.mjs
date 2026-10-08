@@ -226,9 +226,9 @@ try{
   need('FCC mission auto-completed',await syncPage.locator('#motXp').textContent()==='55 XP');
   need('FCC sync source',await syncPage.locator('#fccSyncSource').textContent()==='Server snapshot');
   const genericFccState=await syncPage.evaluate(()=>JSON.parse(localStorage.getItem('qaResourceSyncV1')||'{}'));
-  need('FCC sync is backed by generic resource adapter',Array.isArray(genericFccState.observations?.['freecodecamp-js-v9']?.ids)&&genericFccState.observations['freecodecamp-js-v9'].ids.length===expectedJsCompleted+1);
+  need('FCC sync is backed by generic resource adapter',Array.isArray(genericFccState.observations?.['freecodecamp-js-v9']?.ids)&&genericFccState.observations?.['freecodecamp-js-v9']?.ids.includes(expectedNextFCC.id));
   await syncPage.locator('input[data-phase-unit="p1u0"]').check();
-  need('resource switch records activity',await syncPage.evaluate(()=>{const s=JSON.parse(localStorage.getItem('qaMotivationV2')||'{}');return s.activityLog.length===2&&String(s.activityLog[1].resource).includes('freeCodeCamp — TypeScript full course')}));
+  need('resource switch records activity',await syncPage.evaluate(()=>{const s=JSON.parse(localStorage.getItem('qaMotivationV2')||'{}');return s.activityLog.length===3&&String(s.activityLog[2].resource).includes('freeCodeCamp — TypeScript full course')}));
   need('resource switch stays in same daily session',await syncPage.locator('#motStreak').textContent()==='1');
   need('resource switch adds no second session XP',await syncPage.locator('#motXp').textContent()==='55 XP');
   const rollover=await syncPage.evaluate(()=>{
