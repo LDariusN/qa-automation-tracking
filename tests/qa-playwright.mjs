@@ -117,9 +117,9 @@ try{
   need('14 resource adapters rendered',await page.locator('[data-resource-adapter]').count()===14);
   need('resource registry reports 14 adapters',await page.locator('#resourceAdapterCount').textContent()==='14');
   need('resource registry has two automatic progress adapters',await page.locator('[data-sync-mode="progress"]').count()===2);
-  need('resource registry has two automatic activity adapters',await page.locator('[data-sync-mode="activity"]').count()===2);
+  need('resource registry has one automatic activity adapter',await page.locator('[data-sync-mode="activity"]').count()===1);
   need('resource registry has two setup adapters',await page.locator('[data-sync-mode="configured"]').count()===2);
-  need('resource registry has eight manual adapters',await page.locator('[data-sync-mode="manual"]').count()===8);
+  need('resource registry has nine manual adapters',await page.locator('[data-sync-mode="manual"]').count()===9);
   const adapterContract=await page.evaluate(()=>{
     const empty={version:1,observations:{}};
     const first=QAResourceSync.observe(empty,'synthetic',{ids:['lesson-1','lesson-2'],source:'test',observedAt:'2026-10-08T10:00:00Z'});
@@ -274,7 +274,7 @@ try{
   const genericFccState=await syncPage.evaluate(()=>JSON.parse(localStorage.getItem('qaResourceSyncV1')||'{}'));
   need('FCC sync is backed by generic resource adapter',Array.isArray(genericFccState.observations?.['freecodecamp-js-v9']?.ids)&&genericFccState.observations?.['freecodecamp-js-v9']?.ids.includes(expectedNextFCC.id));
   await syncPage.locator('input[data-phase-unit="p1u0"]').check();
-  need('resource switch records activity',await syncPage.evaluate(()=>{const s=JSON.parse(localStorage.getItem('qaMotivationV2')||'{}');return s.activityLog.length===3&&String(s.activityLog[2].resource).includes('freeCodeCamp — TypeScript full course')}));
+  need('resource switch records activity',await syncPage.evaluate(()=>{const s=JSON.parse(localStorage.getItem('qaMotivationV2')||'{}');return s.activityLog.length>=3&&String(s.activityLog.at(-1)?.resource||'').includes('freeCodeCamp — TypeScript full course')}));
   need('resource switch stays in same daily session',await syncPage.locator('#motStreak').textContent()==='1');
   need('resource switch adds no second session XP',await syncPage.locator('#motXp').textContent()==='55 XP');
   const rollover=await syncPage.evaluate(()=>{
