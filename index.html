@@ -66,7 +66,7 @@ document.addEventListener('input',e=>{if(e.target?.id==='globalSearch')searchSit
 const qaStorage=(()=>{try{const k='__qa_storage_test__';window.localStorage.setItem(k,'1');window.localStorage.removeItem(k);return window.localStorage}catch(e){return{getItem:()=>null,setItem:()=>{},removeItem:()=>{}}}})();
 let state=JSON.parse(qaStorage.getItem('qaCourseRoadmapV4')||'{}');let mode='all';const app=document.getElementById('app');
 const FCC_V5_SYNC='qaRoadmapFCCSyncV5',FCC_V5_CURRICULUM='qaRoadmapFCCCurriculumV6';
-const fccV5=JSON.parse(qaStorage.getItem(FCC_V5_SYNC)||'null')||{username:'',auto:true,lastSync:null,lastAttemptAt:null,lastSyncSource:null,lastError:null,completedIds:[]};
+const fccV5=JSON.parse(qaStorage.getItem(FCC_V5_SYNC)||'null')||{username:'',auto:true,lastSync:null,lastAttemptAt:null,lastSyncSource:null,lastError:null,completedIds:[],observedIds:[],observedAt:null};fccV5.auto=true;fccV5.observedIds=Array.isArray(fccV5.observedIds)?fccV5.observedIds:[];
 qaStorage.removeItem('qaRoadmapFCCCurriculumV5');
 let fccCurriculumV5=JSON.parse(qaStorage.getItem(FCC_V5_CURRICULUM)||'null')||null;
 const FCC_V5_GRAPHQL='https://curriculum-db.freecodecamp.org/graphql';
@@ -151,7 +151,7 @@ function renderFCCDashboardV5(){const host=document.getElementById('fccCurriculu
 async function syncFCC(background=false){
  const u=document.getElementById('fccUsername')?.value.trim();
  if(!u)return;
- const previousIds=[...(fccV5.completedIds||[])],previousMission=motNextFCC(),b=document.getElementById('fccSyncBtn');
+ const previousIds=[...(fccV5.observedIds||fccV5.completedIds||[])],previousMission=motNextFCC(),b=document.getElementById('fccSyncBtn');
  fccV5.lastAttemptAt=new Date().toISOString();
  if(!background){if(b){b.disabled=true;b.textContent='Checking…'}setFCCStatusV5('Checking for new progress…')}
  try{
@@ -163,11 +163,15 @@ async function syncFCC(background=false){
   fccV5.lastSyncSource='snapshot';
   fccV5.lastError=null;
   const added=fccV5.completedIds.filter(id=>!previousIds.includes(id));
+  const hadObservation=Array.isArray(fccV5.observedIds)&&fccV5.observedIds.length>0;
+  const observedChanged=hadObservation&&added.length>0;
+  fccV5.observedIds=[...fccV5.completedIds];
+  fccV5.observedAt=new Date().toISOString();
   saveFCCV5();
   qaStorage.setItem(FCC_V5_CURRICULUM,JSON.stringify(fccCurriculumV5));
   updateFCCPanelV5();
   const done=fccCurriculumV5.lessons.filter(l=>fccV5.completedIds.includes(l.id)).length;
-  if(added.length){
+  if(observedChanged){
     const missionCompleted=!!(previousMission?.type==='fcc'&&added.includes(previousMission.id));
     motRecordActivity('freeCodeCamp',added.length+' new lesson'+(added.length===1?'':'s')+' detected',missionCompleted);
     setFCCStatusV5('New freeCodeCamp progress detected — '+done+' of '+fccCurriculumV5.lessons.length+' JavaScript v9 tasks completed.','success');
@@ -188,12 +192,22 @@ async function loadStaticFCCProgressV5(){
     if(!r.ok)return;
     const data=await r.json();
     if(Array.isArray(data?.completedChallengeIds)){
-      fccV5.completedIds=data.completedChallengeIds.filter(Boolean);
+      const incoming=[...new Set(data.completedChallengeIds.filter(Boolean))];
+      const hadObservation=Array.isArray(fccV5.observedIds)&&fccV5.observedIds.length>0;
+      const added=hadObservation?incoming.filter(id=>!fccV5.observedIds.includes(id)):[];
+      const previousMission=motNextFCC();
+      fccV5.completedIds=incoming;
+      fccV5.observedIds=incoming;
+      fccV5.observedAt=new Date().toISOString();
       if(data.username)fccV5.username=String(data.username).replace(/^@+/,'');
       if(data.syncedAt)fccV5.lastSync=data.syncedAt;
       fccV5.lastSyncSource='snapshot';
       saveFCCV5();
       updateFCCPanelV5();
+      if(added.length){
+        const missionCompleted=!!(previousMission?.type==='fcc'&&added.includes(previousMission.id));
+        motRecordActivity('freeCodeCamp',added.length+' new lesson'+(added.length===1?'':'s')+' detected',missionCompleted);
+      }
     }
   }catch(_e){}
 }
@@ -227,8 +241,9 @@ function motLevel(xp){const level=Math.floor(xp/500)+1;return{level,name:['Start
 function motResourceForRoadmap(pi){return phases[pi]?.course||'Roadmap practice'}
 function motRecordActivity(resource,details='',missionCompleted=false){
  const today=motToday(),now=new Date().toISOString();
- if(!motState.sessions.includes(today)){motState.sessions.push(today);motState.sessions=motState.sessions.slice(-90);motState.xp+=15}
- const event={at:now,resource,details};
+ const newSession=!motState.sessions.includes(today);
+ if(newSession){motState.sessions.push(today);motState.sessions=motState.sessions.slice(-90);motState.xp+=15}
+ const event={at:now,resource,details,sessionStarted:newSession};
  motState.activityLog=Array.isArray(motState.activityLog)?motState.activityLog:[];
  motState.activityLog.push(event);
  motState.activityLog=motState.activityLog.slice(-200);
@@ -245,7 +260,7 @@ function renderMotivation(){
  const mt=document.getElementById('missionTitle'),mm=document.getElementById('missionMeta'),ma=document.getElementById('missionActivity');
  if(mt)mt.textContent=mission?mission.title:'🎉 All roadmap learning units complete';
  if(mm)mm.textContent=mission?(mission.type==='fcc'?'freeCodeCamp · '+mission.desc:'Phase '+(mission.pi+1)+' · '+mission.desc):'You cleared the entire roadmap. Keep reviewing and building your portfolio.';
- if(ma){const a=motState.lastActivity;if(a){ma.textContent='Last detected activity: '+a.resource+' · '+a.details+' · '+new Date(a.at).toLocaleString()}else ma.textContent='Watching your learning resources for new progress automatically.'}
+ if(ma){const a=motState.lastActivity;if(a){ma.textContent=(a.sessionStarted?'Session started: ':'Progress detected: ')+a.resource+' · '+a.details+' · '+new Date(a.at).toLocaleString()}else ma.textContent='Watching your learning resources for new progress automatically.'}
  const st=document.getElementById('motStreak');if(st)st.textContent=streak;
  const week=document.getElementById('motWeek');if(week)week.innerHTML=dates.map(d=>'<div class="week-day">'+motDayKey(d)+'<div class="week-dot '+(sessions.has(d)?'done ':'')+(d===today?'today':'')+'">'+(sessions.has(d)?'✓':'')+'</div></div>').join('');
  const wc=document.getElementById('motWeekText');if(wc)wc.textContent=[...sessions].filter(d=>dates.includes(d)).length+' / 5 sessions this week';
