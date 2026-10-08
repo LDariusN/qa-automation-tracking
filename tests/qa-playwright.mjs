@@ -252,9 +252,11 @@ try{
   await page.locator('#globalSearch').fill('playwright');
   need('search returns results',await page.locator('.search-result').count()>0);
   await page.locator('#globalSearch').fill('');
+  await page.locator('[data-ux-nav="today"]').click();
   await page.locator('#focusBtn').click();
   need('focus mode opens',await page.locator('#focusOverlay.open').count()===1);
   await page.locator('#focusOverlay button', {hasText:'Exit focus mode'}).click();
+  await page.locator('[data-ux-nav="career"]').click();
   await page.locator('button', {hasText:'Start 10-question mock interview'}).click();
   need('interview mode opens',await page.locator('#interviewOverlay.open').count()===1);
   need('interview question shown',await page.locator('#interviewQuestion').textContent().then(x=>String(x).length>0));
