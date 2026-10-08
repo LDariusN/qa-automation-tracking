@@ -199,6 +199,8 @@ try{
   await page.waitForFunction(expected=>document.querySelectorAll('.fcc-v5-lesson').length===expected,expectedCurriculumTotal,{timeout:10000});
   need('all FCC lessons render after module expansion',await page.locator('.fcc-v5-lesson').count()===expectedCurriculumTotal);
 
+  await page.locator('[data-ux-nav="roadmap"]').click();
+  need('Roadmap interaction view active',await page.locator('body[data-ux-view="roadmap"]').count()===1);
   const first=page.locator('.phase-unit input[data-roadmap-unit]').first();
   const key=await first.getAttribute('data-phase-unit');
   const row=()=>page.locator('[data-phase-row="'+key+'"]');
@@ -374,6 +376,7 @@ try{
   const localResourcePage=await localResourceContext.newPage();
   await localResourcePage.addInitScript(()=>localStorage.setItem('qaMotivationV2',JSON.stringify({xp:0,sessions:[],manualCompletedAt:{},reviewHistory:{},missionClaimed:{},activityLog:[]})));
   await localResourcePage.goto(url,{waitUntil:'domcontentloaded'});
+  await localResourcePage.locator('[data-ux-nav="roadmap"]').click();
   await localResourcePage.locator('.phase-unit input[data-roadmap-unit]').first().check();
   need('roadmap activity creates session',await localResourcePage.locator('#motStreak').textContent()==='1');
   need('roadmap activity identifies resource',await localResourcePage.locator('#missionActivity').textContent().then(x=>x.length>0));
