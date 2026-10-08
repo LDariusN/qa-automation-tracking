@@ -18,7 +18,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,summary:focus-visible{o
 body[data-ux-view="today"] [data-ux-area~="roadmap"],body[data-ux-view="today"] [data-ux-area~="resources"]{display:none!important}
 body[data-ux-view="roadmap"] [data-ux-area~="today"],body[data-ux-view="roadmap"] [data-ux-area~="resources"]{display:none!important}
 body[data-ux-view="resources"] [data-ux-area~="today"],body[data-ux-view="resources"] [data-ux-area~="roadmap"]{display:none!important}
-body[data-ux-view="career"] [data-ux-area~="today"],body[data-ux-view="career"] [data-ux-area~="resources"],body[data-ux-view="career"] [data-ux-area~="roadmap"]:not(#app) {display:none!important}
+body[data-ux-view="career"] [data-ux-area~="today"],body[data-ux-view="career"] [data-ux-area~="resources"],body[data-ux-view="career"] .wrap > [data-ux-area~="roadmap"]:not(#app){display:none!important}
 body[data-ux-view="career"] #app .phase:not(#phase13){display:none!important}
 @media(max-width:900px){.ux-phase-nav{grid-template-columns:repeat(4,minmax(0,1fr))}.ux-nav-spacer{display:none}.ux-nav-hint{display:none}}
 @media(max-width:560px){.ux-nav{position:static;overflow:auto}.ux-nav button{flex:1 0 auto}.ux-phase-nav{grid-template-columns:repeat(2,minmax(0,1fr))}.ux-view-title{display:block}.ux-activity-row{grid-template-columns:56px 1fr}.ux-activity-badge{display:none}}
@@ -470,7 +470,7 @@ async function bootstrapRoadmapV3(){
   await timeout(loadStaticFCCProgressV5(),5000,'FCC progress load');
   renderMotivation();
   uxInitV1();
-  if(fccV5.usernamesetTimeout(()=>syncFCC(true),300);setTimeout(()=>syncConfiguredResourceAdaptersV1(),700);
+  if(fccV5.username)setTimeout(()=>syncFCC(true),300);setTimeout(()=>syncConfiguredResourceAdaptersV1(),700);
 }
 bootstrapRoadmapV3().then(()=>{
   if(new URLSearchParams(location.search).get('qa-smoke')==='1')setTimeout(runQaSmokeV3,500);
