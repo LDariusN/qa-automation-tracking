@@ -115,6 +115,12 @@ try{
   need('skip link',await page.locator('.skip-link').count()===1);
   need('FCC status is live region',await page.locator('#fccStatus[role="status"][aria-live="polite"]').count()===1);
   need('four primary UX destinations',await page.locator('[data-ux-nav]').count()===4);
+  need('Today nav has current-page state',await page.locator('[data-ux-nav="today"][aria-current="page"]').count()===1);
+  need('recent activity is announced politely',await page.locator('#recentActivityList[aria-live="polite"]').count()===1);
+  need('overall progress exposes progressbar semantics',await page.locator('.progress .bar[role="progressbar"][aria-valuemin="0"][aria-valuemax="100"]').count()===1);
+  need('14 phase learning progressbars',await page.locator('.phase-track-bar[role="progressbar"]').count()===14);
+  need('14 phase mastery progressbars',await page.locator('.mastery-bar[role="progressbar"]').count()===14);
+  need('dense sections use progressive disclosure',await page.locator('details.ux-collapsible').count()>=1);
   need('Today is default view',await page.locator('body[data-ux-view="today"]').count()===1);
   need('recent activity panel present',await page.locator('#recentActivityPanel').count()===1);
   await page.locator('[data-ux-nav="roadmap"]').click();
