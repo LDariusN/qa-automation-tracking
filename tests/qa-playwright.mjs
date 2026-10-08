@@ -111,6 +111,16 @@ try{
   need('resume target matches current FCC next lesson',expectedNextFCC && (await page.locator('#resumeBtn').textContent())===('Resume: '+expectedNextFCC.title));
   need('FCC mission metadata has module name',!(await page.locator('#missionMeta').textContent()).includes('undefined'));
   need('XP visible',(await page.locator('#motXp').textContent()).includes('XP'));
+  need('daily goal target visible',await page.locator('#goalTargetText').count()===1&&await page.locator('#goalTargetText').textContent().then(x=>x.includes('today')&&x.includes('remaining')));
+  const goalContract=await page.evaluate(()=>{
+    const start='2026-10-08',deadline=motAddMonths(start,4);
+    const normal=Math.ceil(160/motWeekdaysBetween(start,deadline));
+    const afterMissedWeekdays=Math.ceil(160/motWeekdaysBetween('2026-11-02',deadline));
+    return {deadline,normal,afterMissedWeekdays};
+  });
+  need('four-month goal deadline calculation',goalContract.deadline==='2027-02-08');
+  need('four-month daily pace is two units',goalContract.normal===2);
+  need('missed weekdays increase required pace',goalContract.afterMissedWeekdays===3);
   need('14 career cards',await page.locator('.career-phase').count()===14);
   need('skip link',await page.locator('.skip-link').count()===1);
   need('FCC status is live region',await page.locator('#fccStatus[role="status"][aria-live="polite"]').count()===1);
@@ -207,6 +217,8 @@ try{
     mastery:JSON.parse(localStorage.getItem('qaMasteryV1')||'{}')
   }));
   need('learning persisted',stored.phase[key]===true);
+  need('roadmap completion date persisted',typeof JSON.parse(localStorage.getItem('qaMotivationV2')||'{}').manualCompletedAt?.[key]==='number');
+  need('goal start date persisted',typeof JSON.parse(localStorage.getItem('qaMotivationV2')||'{}').goalStartDate==='string');
   need('mastery persisted',stored.mastery[key]?.recall===true&&stored.mastery[key]?.apply===true);
   need('recall evidence persisted',stored.mastery[key]?.recallEvidence==='I can explain this concept clearly.');
   need('apply evidence persisted',stored.mastery[key]?.applyEvidence==='I used it in a coding exercise.');
