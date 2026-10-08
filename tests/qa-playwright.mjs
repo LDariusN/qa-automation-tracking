@@ -106,6 +106,22 @@ try{
   need('14 career cards',await page.locator('.career-phase').count()===14);
   need('skip link',await page.locator('.skip-link').count()===1);
   need('FCC status is live region',await page.locator('#fccStatus[role="status"][aria-live="polite"]').count()===1);
+  need('14 resource adapters rendered',await page.locator('[data-resource-adapter]').count()===14);
+  need('resource registry reports 14 adapters',await page.locator('#resourceAdapterCount').textContent()==='14');
+  need('resource registry has one automatic adapter',await page.locator('[data-sync-mode="automatic"]').count()===1);
+  need('resource registry has thirteen manual adapters',await page.locator('[data-sync-mode="manual"]').count()===13);
+  const adapterContract=await page.evaluate(()=>{
+    const empty={version:1,observations:{}};
+    const first=QAResourceSync.observe(empty,'synthetic',{ids:['lesson-1','lesson-2'],source:'test',observedAt:'2026-10-08T10:00:00Z'});
+    const repeat=QAResourceSync.observe(first.state,'synthetic',{ids:['lesson-1','lesson-2'],source:'test',observedAt:'2026-10-08T10:01:00Z'});
+    const next=QAResourceSync.observe(repeat.state,'synthetic',{ids:['lesson-1','lesson-2','lesson-3'],source:'test',observedAt:'2026-10-08T10:02:00Z'});
+    const removed=QAResourceSync.observe(next.state,'synthetic',{ids:['lesson-2','lesson-3'],source:'test',observedAt:'2026-10-08T10:03:00Z'});
+    return {first:first.firstProgress&&first.detected,repeat:!repeat.detected&&repeat.addedCount===0,next:next.detected&&next.addedCount===1,removed:!removed.detected&&removed.removedCount===1};
+  });
+  need('generic adapter first progress detection',adapterContract.first);
+  need('generic adapter idempotency',adapterContract.repeat);
+  need('generic adapter delta detection',adapterContract.next);
+  need('generic adapter handles progress removal',adapterContract.removed);
   need('FCC sync source visible',await page.locator('#fccSyncSource').count()===1);
   need('search input',await page.locator('#globalSearch').count()===1);
   need('focus button',await page.locator('#focusBtn').count()===1);
@@ -207,6 +223,28 @@ try{
   need('FCC activity creates session',await syncPage.locator('#motStreak').textContent()==='1');
   need('FCC mission auto-completed',await syncPage.locator('#motXp').textContent()==='55 XP');
   need('FCC sync source',await syncPage.locator('#fccSyncSource').textContent()==='Server snapshot');
+  const genericFccState=await syncPage.evaluate(()=>JSON.parse(localStorage.getItem('qaResourceSyncV1')||'{}'));
+  need('FCC sync is backed by generic resource adapter',Array.isArray(genericFccState.observations?.['freecodecamp-js-v9']?.ids)&&genericFccState.observations['freecodecamp-js-v9'].ids.length===expectedJsCompleted+1);
+  await syncPage.locator('input[data-phase-unit="p1u0"]').check();
+  need('resource switch records activity',await syncPage.evaluate(()=>{const s=JSON.parse(localStorage.getItem('qaMotivationV2')||'{}');return s.activityLog.length===2&&String(s.activityLog[1].resource).includes('freeCodeCamp — TypeScript full course')}));
+  need('resource switch stays in same daily session',await syncPage.locator('#motStreak').textContent()==='1');
+  need('resource switch adds no second session XP',await syncPage.locator('#motXp').textContent()==='55 XP');
+  const rollover=await syncPage.evaluate(()=>{
+    const RealDate=Date;
+    const fixed=new RealDate('2026-10-09T09:00:00Z');
+    class FakeDate extends RealDate{constructor(...args){super(args.length?args[0]:fixed.getTime())}static now(){return fixed.getTime()}}
+    window.Date=FakeDate;
+    motState.sessions=['2026-10-08'];
+    motState.xp=55;
+    motState.missionClaimed={'2026-10-08':true};
+    recordResourceActivityV1('roadmap-phase-1','Next calendar day test',false);
+    const result={sessions:[...motState.sessions],xp:motState.xp,streak:motStreak()};
+    window.Date=RealDate;
+    return result;
+  });
+  need('next calendar day creates a new session',rollover.sessions.includes('2026-10-09')&&rollover.sessions.length===2);
+  need('next calendar day awards session XP once',rollover.xp===70);
+  need('next calendar day continues streak',rollover.streak===2);
   await syncContext.close();
 
   // Roadmap activity regression: checking a roadmap unit also starts a session automatically.
