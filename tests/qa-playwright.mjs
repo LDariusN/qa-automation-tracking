@@ -181,11 +181,12 @@ try{
 
   await page.screenshot({path:path.join(root,'artifacts','desktop.png'),fullPage:true});
 
-  // Server snapshot refresh regression. The first response is the baseline;
-  // the second simulates a newer GitHub Actions-generated snapshot.
+  // Automatic FCC progress detection regression. A new published snapshot must create
+  // the session event, advance the mission and update the streak without a start button.
   const syncContext=await browser.newContext({timezoneId:'Europe/Bucharest'});
   const syncPage=await syncContext.newPage();
   let progressFetches=0;
+  await syncPage.addInitScript(()=>localStorage.setItem('qaMotivationV2',JSON.stringify({xp:0,sessions:[],manualCompletedAt:{},reviewHistory:{},missionClaimed:{},activityLog:[]})));
   await syncPage.route('**/fcc-progress.json**',async route=>{
     progressFetches++;
     const nextData={...progressData};
@@ -198,11 +199,24 @@ try{
   });
   await syncPage.goto(url,{waitUntil:'domcontentloaded'});
   await syncPage.locator('#fccUsername').fill(String(progressData.username));
-  await syncPage.locator('#fccSyncBtn').click();
+  await syncPage.evaluate(()=>syncFCC());
   await syncPage.waitForFunction(expected=>document.querySelector('#fccCompletedCount')?.textContent===String(expected),expectedJsCompleted+1,{timeout:10000});
-  need('server snapshot source',await syncPage.locator('#fccSyncSource').textContent()==='Server snapshot');
-  need('server snapshot refresh status',(await syncPage.locator('#fccStatus').textContent()).startsWith('Progress refreshed from the server snapshot'));
+  need('manual start button removed',await syncPage.locator('#missionStartBtn').count()===0);
+  need('manual mission completion removed',await syncPage.locator('#missionDoneBtn').count()===0);
+  need('automatic FCC activity recorded',await syncPage.locator('#missionActivity').textContent().then(x=>x.includes('freeCodeCamp')));
+  need('FCC activity creates session',await syncPage.locator('#motStreak').textContent()==='1');
+  need('FCC mission auto-completed',await syncPage.locator('#motXp').textContent()==='55 XP');
+  need('FCC sync source',await syncPage.locator('#fccSyncSource').textContent()==='Server snapshot');
   await syncContext.close();
+
+  // Roadmap activity regression: checking a roadmap unit also starts a session automatically.
+  const localResourcePage=await context.newPage();
+  await localResourcePage.addInitScript(()=>localStorage.setItem('qaMotivationV2',JSON.stringify({xp:0,sessions:[],manualCompletedAt:{},reviewHistory:{},missionClaimed:{},activityLog:[]})));
+  await localResourcePage.goto(url,{waitUntil:'domcontentloaded'});
+  await localResourcePage.locator('.phase-unit input[data-roadmap-unit]').first().check();
+  need('roadmap activity creates session',await localResourcePage.locator('#motStreak').textContent()==='1');
+  need('roadmap activity identifies resource',await localResourcePage.locator('#missionActivity').textContent().then(x=>x.length>0));
+  await localResourcePage.close();
 
   // Mobile layout/accessibility smoke.
   const mobile=await context.newPage();
