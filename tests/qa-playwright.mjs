@@ -134,7 +134,7 @@ try{
   need('focus mode is active',await page.locator('[data-ux-phase-mode="focus"][aria-pressed="true"]').count()===1);
   await page.locator('[data-ux-phase-mode="all"]').click();
   need('all-phases mode shows every phase',await page.locator('#app .phase:visible').count()===14);
-  need('all-phases mode persists in state',await page.evaluate(()=>JSON.parse(localStorage.getItem('qaUxV1')).phaseMode==='all');
+  need('all-phases mode persists in state',await page.evaluate(()=>JSON.parse(localStorage.getItem('qaUxV1')).phaseMode==='all'));
   await page.locator('[data-ux-phase-mode="focus"]').click();
   need('returning to focus hides other phases',await page.locator('#app .phase:visible').count()===1);
   await page.locator('[data-ux-nav="resources"]').click();
