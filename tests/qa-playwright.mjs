@@ -70,7 +70,7 @@ try{
     localSync:localStorage.getItem('qaRoadmapFCCSyncV5')||''
   }));
   if(initialState.completed!==String(expectedJsCompleted)){
-    throw new Error('Initial FCC load mismatch: expected '+expectedJsCompleted+' got '+initialState.completed+'; '+JSON.stringify(initialState));
+    throw new Error('Initial FCC load mismatch: expected '+expectedJsCompleted+' got '+initialState.completed+'; '+JSON.stringify(initialState)+'\nPageErrors: '+JSON.stringify(pageErrors)+'\nConsoleErrors: '+JSON.stringify(consoleErrors));
   }
 
   need('14 phases',await page.locator('.phase').count()===14);
