@@ -285,6 +285,7 @@ try{
     await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(nextData)});
   });
   await syncPage.goto(url,{waitUntil:'domcontentloaded'});
+  await syncPage.locator('[data-ux-nav="resources"]').click();
   await syncPage.locator('#fccUsername').fill(String(progressData.username));
   await syncPage.evaluate(()=>syncFCC());
   await syncPage.waitForFunction(expected=>document.querySelector('#fccCompletedCount')?.textContent===String(expected),expectedJsCompleted+1,{timeout:10000});
@@ -296,6 +297,7 @@ try{
   need('FCC sync source',await syncPage.locator('#fccSyncSource').textContent()==='Server snapshot');
   const genericFccState=await syncPage.evaluate(()=>JSON.parse(localStorage.getItem('qaResourceSyncV1')||'{}'));
   need('FCC sync is backed by generic resource adapter',Array.isArray(genericFccState.observations?.['freecodecamp-js-v9']?.ids)&&genericFccState.observations?.['freecodecamp-js-v9']?.ids.includes(expectedNextFCC.id));
+  await syncPage.locator('[data-ux-nav="roadmap"]').click();
   await syncPage.locator('input[data-phase-unit="p1u0"]').check();
   need('resource switch records activity',await syncPage.evaluate(()=>{const s=JSON.parse(localStorage.getItem('qaMotivationV2')||'{}');return s.activityLog.length>=3&&s.activityLog.some(e=>String(e?.resource||'').includes('freeCodeCamp — TypeScript full course'))}));
   need('resource switch stays in same daily session',await syncPage.locator('#motStreak').textContent()==='1');
