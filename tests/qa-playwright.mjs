@@ -38,6 +38,12 @@ await fs.mkdir(path.join(root,'artifacts'),{recursive:true});
 const browser = await chromium.launch({headless:true});
 const context = await browser.newContext({timezoneId:'Europe/Bucharest'});
 const page = await context.newPage();
+await page.route('https://api.github.com/**',async route=>{
+  const u=route.request().url();
+  if(u.includes('/actions/runs')) return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({workflow_runs:[]})});
+  if(u.includes('/users/')&&u.includes('/repos')) return route.fulfill({status:200,contentType:'application/json',body:'[]'});
+  return route.fulfill({status:200,contentType:'application/json',body:'{}'});
+});
 
 const pageErrors=[];
 const consoleErrors=[];
@@ -110,8 +116,10 @@ try{
   need('FCC status is live region',await page.locator('#fccStatus[role="status"][aria-live="polite"]').count()===1);
   need('14 resource adapters rendered',await page.locator('[data-resource-adapter]').count()===14);
   need('resource registry reports 14 adapters',await page.locator('#resourceAdapterCount').textContent()==='14');
-  need('resource registry has one automatic adapter',await page.locator('[data-sync-mode="automatic"]').count()===1);
-  need('resource registry has thirteen manual adapters',await page.locator('[data-sync-mode="manual"]').count()===13);
+  need('resource registry has two automatic progress adapters',await page.locator('[data-sync-mode="progress"]').count()===2);
+  need('resource registry has two automatic activity adapters',await page.locator('[data-sync-mode="activity"]').count()===2);
+  need('resource registry has two setup adapters',await page.locator('[data-sync-mode="configured"]').count()===2);
+  need('resource registry has eight manual adapters',await page.locator('[data-sync-mode="manual"]').count()===8);
   const adapterContract=await page.evaluate(()=>{
     const empty={version:1,observations:{}};
     const first=QAResourceSync.observe(empty,'synthetic',{ids:['lesson-1','lesson-2'],source:'test',observedAt:'2026-10-08T10:00:00Z'});
@@ -124,9 +132,47 @@ try{
   need('generic adapter idempotency',adapterContract.repeat);
   need('generic adapter delta detection',adapterContract.next);
   need('generic adapter handles progress removal',adapterContract.removed);
+  const progressContract=await page.evaluate(()=>{
+    const empty={version:2,observations:{}};
+    const first=QAResourceSync.observeProgress(empty,'video',{value:30,total:1000,minimumValue:30,thresholds:[0.02,0.25,0.5,1],observedAt:'2026-10-08T10:00:00Z'});
+    const repeat=QAResourceSync.observeProgress(first.state,'video',{value:40,total:1000,minimumValue:30,thresholds:[0.02,0.25,0.5,1],observedAt:'2026-10-08T10:00:05Z'});
+    const q=QAResourceSync.observeProgress(repeat.state,'video',{value:250,total:1000,minimumValue:30,thresholds:[0.02,0.25,0.5,1],observedAt:'2026-10-08T10:01:00Z'});
+    return {first:first.firstProgress&&first.detected,repeat:!repeat.detected,q:q.detected&&q.crossed.includes(0.25)};
+  });
+  need('numeric progress first detection',progressContract.first);
+  need('numeric progress idempotency before milestone',progressContract.repeat);
+  need('numeric progress milestone detection',progressContract.q);
+  need('TypeScript YouTube URL parser',await page.evaluate(()=>QAResourceSync.youtubeVideoId('https://www.youtube.com/watch?v=SpwzRDUQ1GI')==='SpwzRDUQ1GI'));
+  need('tracked TypeScript player is present',await page.locator('.youtube-tracker').count()===1);
+  need('tracked TypeScript player load button',await page.locator('#youtubeLoadBtn').count()===1);
   need('FCC sync source visible',await page.locator('#fccSyncSource').count()===1);
   need('search input',await page.locator('#globalSearch').count()===1);
   need('focus button',await page.locator('#focusBtn').count()===1);
+
+  // YouTube player regression: a real player callback should create learning activity
+  // only after meaningful playback, and repeated samples must be idempotent.
+  const ytResult=await page.evaluate(async()=>{
+    motState.xp=0;motState.sessions=[];motState.activityLog=[];
+    resourceSyncState=QAResourceSync.ensureState(null);
+    window.__ytTime=0;window.__ytDuration=1000;
+    window.YT={Player:class{constructor(_id,opts){this.opts=opts;setTimeout(()=>opts.events.onReady({target:this}),0)}getCurrentTime(){return window.__ytTime}getDuration(){return window.__ytDuration}}};
+    await loadYouTubeTrackerV1();
+    await new Promise(r=>setTimeout(r,20));
+    onYouTubeStateChangeV1({data:1});
+    window.__ytTime=40;
+    sampleYouTubeProgressV1();
+    const afterFirst={xp:motState.xp,events:motState.activityLog.length,pct:document.getElementById('youtubeProgressPct')?.textContent||''};
+    sampleYouTubeProgressV1();
+    const afterRepeat={xp:motState.xp,events:motState.activityLog.length};
+    window.__ytTime=250;
+    sampleYouTubeProgressV1();
+    const afterMilestone={xp:motState.xp,events:motState.activityLog.length,pct:document.getElementById('youtubeProgressPct')?.textContent||''};
+    stopYouTubeSamplingV1();
+    return {afterFirst,afterRepeat,afterMilestone};
+  });
+  need('YouTube player first meaningful playback creates session',ytResult.afterFirst.xp===15&&ytResult.afterFirst.events===1);
+  need('YouTube repeated playback sample is idempotent',ytResult.afterRepeat.xp===15&&ytResult.afterRepeat.events===1);
+  need('YouTube milestone creates activity without second session',ytResult.afterMilestone.xp===15&&ytResult.afterMilestone.events===2&&ytResult.afterMilestone.pct==='25%');
 
   // Load every FCC module on demand and verify all generated lessons.
   await page.locator('details[data-fcc-module]').evaluateAll(ds=>ds.forEach(d=>{d.open=true}));
@@ -247,6 +293,50 @@ try{
   need('next calendar day creates a new session',rollover.sessions.includes('2026-10-09')&&rollover.sessions.length===2);
   need('next calendar day awards session XP once',rollover.xp===70);
   need('next calendar day continues streak',rollover.streak===2);
+  // External adapter simulations use mocked platform responses.
+  const externalContext=await browser.newContext({timezoneId:'Europe/Bucharest'});
+  const externalPage=await externalContext.newPage();
+  await externalPage.addInitScript(()=>localStorage.setItem('qaMotivationV2',JSON.stringify({xp:0,sessions:[],manualCompletedAt:{},reviewHistory:{},missionClaimed:{},activityLog:[]})));
+  await externalPage.goto(url,{waitUntil:'domcontentloaded'});
+  const externalResults=await externalPage.evaluate(async()=>{
+    const originalFetch=window.fetch;
+    motState.xp=0;motState.sessions=[];motState.activityLog=[];resourceSyncState=QAResourceSync.ensureState(null);
+    let ghActionsCall=0,ghSkillsCall=0,postmanCall=0;
+    window.fetch=async (url,opts)=>{
+      const u=String(url);
+      if(u.includes('/actions/runs')){
+        ghActionsCall++;
+        return {ok:true,json:async()=>({workflow_runs:ghActionsCall===1?[]:[{id:9001,conclusion:'success',updated_at:'2026-10-08T10:05:00Z'}]})};
+      }
+      if(u.includes('/repos/example/skills-introduction-to-github')){
+        ghSkillsCall++;
+        return {ok:true,json:async()=>({full_name:'example/skills-introduction-to-github',pushed_at:ghSkillsCall===1?'2026-10-08T10:00:00Z':'2026-10-08T10:06:00Z',updated_at:ghSkillsCall===1?'2026-10-08T10:00:00Z':'2026-10-08T10:06:00Z',html_url:'https://github.com/example/skills-introduction-to-github'})};
+      }
+      if(u.includes('api.postman.com/workspaces')){
+        postmanCall++;
+        return {ok:true,json:async()=>({workspaces:[{id:'w1',name:'QA',updatedAt:postmanCall===1?'2026-10-08T10:00:00Z':'2026-10-08T10:07:00Z'}]})};
+      }
+      if(u.includes('api.postman.com/collections')){
+        return {ok:true,json:async()=>({collections:[{id:'c1',name:'QA API',updatedAt:postmanCall===1?'2026-10-08T10:00:00Z':'2026-10-08T10:07:00Z'}]})};
+      }
+      return {ok:true,json:async()=>({})};
+    };
+    const actionsFirst=await syncGitHubActionsV1(),actionsSecond=await syncGitHubActionsV1();
+    document.getElementById('githubSkillsRepo').value='example/skills-introduction-to-github';
+    const skillsFirst=await syncGitHubSkillsV1(),skillsSecond=await syncGitHubSkillsV1();
+    document.getElementById('postmanApiKey').value='test-key';
+    const postFirst=await connectPostmanV1(),postSecond=await connectPostmanV1();
+    window.fetch=originalFetch;
+    return {actions:[actionsFirst.result.detected,actionsSecond.result.detected],skills:[skillsFirst.result.detected,skillsSecond.result.detected],postman:[postFirst.result.detected,postSecond.result.detected],events:motState.activityLog.length,xp:motState.xp};
+  });
+  need('GitHub Actions first observation is baseline',externalResults.actions[0]===false);
+  need('GitHub Actions new successful run is activity',externalResults.actions[1]===true);
+  need('GitHub Skills first repository observation is baseline',externalResults.skills[0]===false);
+  need('GitHub Skills repository change is activity',externalResults.skills[1]===true);
+  need('Postman first observation is baseline',externalResults.postman[0]===false);
+  need('Postman collection change is activity',externalResults.postman[1]===true);
+  need('external adapters share session/XP engine',externalResults.events===3&&externalResults.xp===15);
+
   await syncContext.close();
 
   // Roadmap activity regression: checking a roadmap unit also starts a session automatically.
