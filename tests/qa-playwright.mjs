@@ -218,6 +218,8 @@ try{
 
   await page.locator('[data-ux-nav="roadmap"]').click();
   need('Roadmap interaction view active',await page.locator('body[data-ux-view="roadmap"]').count()===1);
+  await page.locator('[data-ux-phase="0"]').click();
+  need('phase one selected for roadmap interaction test',await page.locator('#phase0').isVisible());
   const first=page.locator('.phase-unit input[data-roadmap-unit]').first();
   const key=await first.getAttribute('data-phase-unit');
   const row=()=>page.locator('[data-phase-row="'+key+'"]');
