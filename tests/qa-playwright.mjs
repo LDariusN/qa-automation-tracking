@@ -317,7 +317,7 @@ try{
       const u=String(url);
       if(u.includes('/actions/runs')){
         ghActionsCall++;
-        return {ok:true,json:async()=>({workflow_runs:ghActionsCall===1?[]:[{id:9001,conclusion:'success',updated_at:'2026-10-08T10:05:00Z'}]})};
+        return {ok:true,json:async()=>({workflow_runs:ghActionsCall===1?([{id:8999,name:'Deploy QA Automation Roadmap',event:'schedule',conclusion:'success',updated_at:'2026-10-08T10:04:00Z'}]):([{id:8999,name:'Deploy QA Automation Roadmap',event:'schedule',conclusion:'success',updated_at:'2026-10-08T10:04:00Z'},{id:9001,name:'Roadmap QA',event:'push',conclusion:'success',updated_at:'2026-10-08T10:05:00Z'}])})};
       }
       if(u.includes('/repos/example/skills-introduction-to-github')){
         ghSkillsCall++;
