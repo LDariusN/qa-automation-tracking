@@ -34,7 +34,7 @@ const port = server.address().port;
 
 await fs.mkdir(path.join(root,'artifacts'),{recursive:true});
 const browser = await chromium.launch({headless:true});
-const context = await browser.newContext();
+const context = await browser.newContext({timezoneId:'Europe/Bucharest'});
 const page = await context.newPage();
 
 const pageErrors=[];
@@ -49,6 +49,7 @@ const expectedNextFCC=curriculumLessons.find(lesson=>!completedSet.has(lesson.id
 
 try{
   await page.addInitScript(()=>{
+    localStorage.setItem('qaRoadmapFCCSyncV5',JSON.stringify({username:'',auto:false,lastSync:null,lastAttemptAt:null,lastSyncSource:null,lastError:null,completedIds:[]}));
     localStorage.setItem('qaLastActiveUnit',JSON.stringify({
       type:'fcc',
       title:'What Is ASCII, and How Does It Work with charCodeAt() and fromCharCode()?',
@@ -93,6 +94,7 @@ try{
   need('14 career cards',await page.locator('.career-phase').count()===14);
   need('skip link',await page.locator('.skip-link').count()===1);
   need('FCC status is live region',await page.locator('#fccStatus[role="status"][aria-live="polite"]').count()===1);
+  need('FCC sync source visible',await page.locator('#fccSyncSource').count()===1);
   need('search input',await page.locator('#globalSearch').count()===1);
   need('focus button',await page.locator('#focusBtn').count()===1);
 
@@ -133,6 +135,22 @@ try{
   need('recall evidence persisted',stored.mastery[key]?.recallEvidence==='I can explain this concept clearly.');
   need('apply evidence persisted',stored.mastery[key]?.applyEvidence==='I used it in a coding exercise.');
 
+  // Regression: streaks must use the user's local calendar date, not UTC.
+  const streakAtLocalMidnight=await page.evaluate(()=>{
+    const RealDate=Date;
+    const fixed=new RealDate('2026-10-07T21:30:00Z'); // 00:30 on 2026-10-08 in Europe/Bucharest.
+    class FakeDate extends RealDate{
+      constructor(...args){super(args.length?args[0]:fixed.getTime())}
+      static now(){return fixed.getTime()}
+    }
+    window.Date=FakeDate;
+    motState.sessions=['2026-10-08'];
+    const result=motStreak();
+    window.Date=RealDate;
+    return result;
+  });
+  need('session streak uses local date',streakAtLocalMidnight===1);
+
   // Product interactions.
   await page.locator('#globalSearch').fill('playwright');
   need('search returns results',await page.locator('.search-result').count()>0);
@@ -150,6 +168,32 @@ try{
   await page.locator('#interviewOverlay button', {hasText:'Finish'}).click();
 
   await page.screenshot({path:path.join(root,'artifacts','desktop.png'),fullPage:true});
+
+  // Live FCC sync regression. The API response is mocked so this test is deterministic.
+  const syncContext=await browser.newContext({timezoneId:'Europe/Bucharest'});
+  const syncPage=await syncContext.newPage();
+  await syncPage.addInitScript(({username,ids})=>{
+    localStorage.setItem('qaRoadmapFCCSyncV5',JSON.stringify({username,auto:false,lastSync:null,lastAttemptAt:null,lastSyncSource:null,lastError:null,completedIds:[]}));
+    const realFetch=window.fetch.bind(window);
+    window.fetch=(input,init)=>{
+      const requestUrl=typeof input==='string'?input:input?.url||'';
+      if(requestUrl.startsWith('https://api.freecodecamp.org/users/get-public-profile?username=')){
+        return Promise.resolve(new Response(JSON.stringify({entities:{user:{[username]:{
+          username,
+          profileUI:{showTimeLine:true},
+          completedChallenges:ids.map(id=>({id}))
+        }}}}),{status:200,headers:{'content-type':'application/json'}}));
+      }
+      return realFetch(input,init);
+    };
+  },{username:String(progressData.username),ids:[...completedSet,expectedNextFCC.id]});
+  await syncPage.goto(url,{waitUntil:'domcontentloaded'});
+  await syncPage.locator('#fccUsername').fill(String(progressData.username));
+  await syncPage.locator('#fccSyncBtn').click();
+  await syncPage.waitForFunction(expected=>document.querySelector('#fccCompletedCount')?.textContent===String(expected),expectedJsCompleted+1,{timeout:10000});
+  need('live FCC sync source',await syncPage.locator('#fccSyncSource').textContent()==='Live FCC');
+  need('live FCC sync status',(await syncPage.locator('#fccStatus').textContent()).startsWith('Live sync successful'));
+  await syncContext.close();
 
   // Mobile layout/accessibility smoke.
   const mobile=await context.newPage();
