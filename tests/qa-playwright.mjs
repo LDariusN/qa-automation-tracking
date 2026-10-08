@@ -59,7 +59,19 @@ try{
     }));
   });
   await page.goto(url,{waitUntil:'domcontentloaded'});
-  await page.waitForFunction(expected=>document.querySelector('#fccCompletedCount')?.textContent===String(expected),expectedJsCompleted,{timeout:10000});
+  await page.waitForTimeout(1500);
+  const initialState=await page.evaluate(()=>({
+    completed:document.querySelector('#fccCompletedCount')?.textContent||'?',
+    overall:document.querySelector('#fccOverallCount')?.textContent||'?',
+    source:document.querySelector('#fccSyncSource')?.textContent||'?',
+    startupError:document.documentElement.getAttribute('data-roadmap-startup-error')||'',
+    dashboard:!!document.querySelector('.fcc-v5-dashboard'),
+    curriculumLoaded:document.querySelectorAll('details[data-fcc-module]').length,
+    localSync:localStorage.getItem('qaRoadmapFCCSyncV5')||''
+  }));
+  if(initialState.completed!==String(expectedJsCompleted)){
+    throw new Error('Initial FCC load mismatch: expected '+expectedJsCompleted+' got '+initialState.completed+'; '+JSON.stringify(initialState));
+  }
 
   need('14 phases',await page.locator('.phase').count()===14);
   need('14 phase trackers',await page.locator('.phase-tracker').count()===14);
