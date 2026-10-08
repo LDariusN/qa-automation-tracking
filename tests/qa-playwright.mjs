@@ -7,6 +7,7 @@ const root = process.cwd();
 const html = await fs.readFile(path.join(root, 'index.html'));
 const curriculum = await fs.readFile(path.join(root, 'fcc-javascript-v9.json'));
 const progress = await fs.readFile(path.join(root, 'fcc-progress.json'));
+const resourceSync = await fs.readFile(path.join(root, 'resource-sync.js'));
 const curriculumData = JSON.parse(curriculum);
 const progressData = JSON.parse(progress);
 const curriculumLessons = Array.isArray(curriculumData?.lessons) ? curriculumData.lessons : [];
@@ -20,7 +21,8 @@ if(expectedFccOverall < 0) throw new Error('FCC overall completion count is nega
 const routes = new Map([
   ['/index.html', {type:'text/html; charset=utf-8', body:html}],
   ['/fcc-javascript-v9.json', {type:'application/json; charset=utf-8', body:curriculum}],
-  ['/fcc-progress.json', {type:'application/json; charset=utf-8', body:progress}]
+  ['/fcc-progress.json', {type:'application/json; charset=utf-8', body:progress}],
+  ['/resource-sync.js', {type:'application/javascript; charset=utf-8', body:resourceSync}]
 ]);
 const server = http.createServer((req,res)=>{
   const pathname = new URL(req.url || '/', 'http://127.0.0.1').pathname;
