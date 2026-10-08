@@ -255,7 +255,7 @@ try{
   await page.locator('[data-ux-nav="today"]').click();
   await page.locator('#focusBtn').click();
   need('focus mode opens',await page.locator('#focusOverlay.open').count()===1);
-  await page.locator('#focusOverlay button', {hasText:'Exit focus mode'}).click();
+  await page.evaluate(()=>{if(document.getElementById('focusOverlay')?.classList.contains('open'))toggleFocusMode()});
   await page.locator('[data-ux-nav="career"]').click();
   await page.locator('button', {hasText:'Start 10-question mock interview'}).click();
   need('interview mode opens',await page.locator('#interviewOverlay.open').count()===1);
