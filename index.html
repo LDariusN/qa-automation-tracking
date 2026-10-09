@@ -178,16 +178,31 @@ const FCC_V5_QUERY='query { modules(superblockDashedName: "javascript-v9", chapt
 function saveFCCV5(){qaStorage.setItem(FCC_V5_SYNC,JSON.stringify(fccV5))}
 function getFCCUserV5(d,u){const x=d?.entities?.user;if(x&&typeof x==='object'){const k=Object.keys(x).find(k=>k.toLowerCase()===u.toLowerCase())||Object.keys(x)[0];if(k)return x[k]}return d?.user||null}
 async function fetchFCCUserV5(rawUsername){
-  const requested=String(rawUsername||'').trim().replace(/^@+/,'').toLowerCase();
+  const requested=String(rawUsername||'').trim().replace(/^@+/,'');
   if(!requested)throw new Error('FCC username is empty');
-  const r=await fetch('./fcc-progress.json?cache='+Date.now(),{cache:'no-store'});
-  if(!r.ok)throw new Error('Latest FCC progress is not available yet (HTTP '+r.status+').');
-  const data=await r.json();
-  const syncedUser=String(data?.username||'').trim().replace(/^@+/,'').toLowerCase();
-  if(!syncedUser)throw new Error('FCC progress file has no username.');
-  if(syncedUser!==requested)throw new Error('This site is configured for FCC user "'+syncedUser+'", not "'+requested+'".');
-  const ids=Array.isArray(data?.completedChallengeIds)?data.completedChallengeIds.filter(Boolean):[];
-  return {username:data.username,profileUI:{showTimeLine:true},completedChallenges:ids.map(id=>({id})),serverSyncedAt:data.syncedAt,syncSource:'snapshot'};
+  // Try the public FCC profile first so newly completed lessons do not wait for a
+  // scheduled GitHub Pages rebuild. A short timeout and snapshot fallback keep the
+  // tracker usable if FCC blocks cross-origin requests or its API is unavailable.
+  try{
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),5000);
+    try{
+      const live=await fetch('https://api.freecodecamp.org/users/get-public-profile?username='+encodeURIComponent(requested),{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json'}});
+      if(!live.ok)throw new Error('FCC live profile HTTP '+live.status);
+      const payload=await live.json(),user=getFCCUserV5(payload,requested);
+      if(!user||!Array.isArray(user.completedChallenges))throw new Error('FCC live profile did not contain public challenge progress');
+      if(user.profileUI?.showTimeLine===false)throw new Error('FCC public progress is hidden');
+      return {...user,username:user.username||requested,serverSyncedAt:new Date().toISOString(),syncSource:'live'};
+    }finally{clearTimeout(timer)}
+  }catch(liveError){
+    const r=await fetch('./fcc-progress.json?cache='+Date.now(),{cache:'no-store'});
+    if(!r.ok)throw new Error('Live FCC check failed ('+String(liveError?.message||liveError)+') and latest snapshot is unavailable (HTTP '+r.status+').');
+    const data=await r.json();
+    const syncedUser=String(data?.username||'').trim().replace(/^@+/,'').toLowerCase();
+    if(!syncedUser)throw new Error('FCC progress file has no username.');
+    if(syncedUser!==requested.toLowerCase())throw new Error('This site is configured for FCC user "'+syncedUser+'", not "'+requested+'".');
+    const ids=Array.isArray(data?.completedChallengeIds)?data.completedChallengeIds.filter(Boolean):[];
+    return {username:data.username,profileUI:{showTimeLine:true},completedChallenges:ids.map(id=>({id})),serverSyncedAt:data.syncedAt,syncSource:'snapshot',liveError:String(liveError?.message||liveError)};
+  }
 }
 async function fetchFCCCurriculumV5(){const r=await fetch('./fcc-javascript-v9.json?cache='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error('Local FCC curriculum HTTP '+r.status);const data=await r.json();if(!Array.isArray(data.lessons)||!data.lessons.length)throw new Error('Local FCC curriculum data is empty');return data}
 async function loadStaticFCCCurriculumV5(){try{const fresh=await fetchFCCCurriculumV5();const previous=JSON.stringify(fccCurriculumV5);fccCurriculumV5=fresh;qaStorage.setItem(FCC_V5_CURRICULUM,JSON.stringify(fccCurriculumV5));updateFCCPanelV5();if(previous!==JSON.stringify(fresh))document.querySelectorAll('details[data-fcc-module]').forEach(d=>d.classList.remove('open'))}catch(e){if(!fccCurriculumV5?.lessons?.length)setFCCStatusV5('FCC curriculum could not be loaded: '+String(e?.message||e),'error');else updateFCCPanelV5()}}
@@ -264,7 +279,7 @@ async function syncFCC(background=false){
   fccV5.username=u;
   fccV5.completedIds=Array.isArray(user.completedChallenges)?user.completedChallenges.map(x=>x?.id).filter(Boolean):[];
   fccV5.lastSync=user.serverSyncedAt||new Date().toISOString();
-  fccV5.lastSyncSource='snapshot';
+  fccV5.lastSyncSource=user.syncSource||'snapshot';
   fccV5.lastError=null;
   fccV5.observedIds=[...fccV5.completedIds];
   fccV5.observedAt=new Date().toISOString();
@@ -273,16 +288,16 @@ async function syncFCC(background=false){
   updateFCCPanelV5();
   const done=fccCurriculumV5.lessons.filter(l=>fccV5.completedIds.includes(l.id)).length;
   const result=observeResourceProgressV1('freecodecamp-js-v9',fccV5.completedIds,{
-    source:'server-snapshot',
+    source:user.syncSource==='live'?'live-fcc-profile':'server-snapshot',
     observedAt:user.serverSyncedAt||fccV5.observedAt,
     details:r2=>r2.firstProgress?'Initial progress detected':r2.added.length+' new lesson'+(r2.added.length===1?'':'s')+' detected',
     missionCompleted:r2=>r2.observedBefore&&!!(previousMission?.type==='fcc'&&r2.added.includes(previousMission.id))
   });
   if(result.detected){
-    setFCCStatusV5('New freeCodeCamp progress detected — '+done+' of '+fccCurriculumV5.lessons.length+' JavaScript v9 tasks completed.','success');
+    setFCCStatusV5('New freeCodeCamp progress detected ('+(user.syncSource==='live'?'live profile':'published snapshot')+') — '+done+' of '+fccCurriculumV5.lessons.length+' JavaScript v9 tasks completed.','success');
   }else if(!background){
     const stamp=user.serverSyncedAt?new Date(user.serverSyncedAt).toLocaleString():'unknown';
-    setFCCStatusV5('No new progress. Current server snapshot: '+stamp+' — '+done+' of '+fccCurriculumV5.lessons.length+' JavaScript v9 tasks completed.','success');
+    setFCCStatusV5(user.syncSource==='live'?'Live FCC check complete — no new progress. '+done+' of '+fccCurriculumV5.lessons.length+' JavaScript v9 tasks completed.':'Snapshot check complete — no new progress. Snapshot time: '+stamp+'. Live FCC access was unavailable'+(user.liveError?': '+user.liveError:'')+'. '+done+' of '+fccCurriculumV5.lessons.length+' JavaScript v9 tasks completed.','success');
   }
  }catch(e){
   fccV5.lastError=String(e?.message||e);
